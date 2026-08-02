@@ -3,264 +3,100 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pinch Puzzle Filter - MediaPipe</title>
-  
-  <!-- MediaPipe dependencies -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-
+  <title>MediaPipe Interactive Projects</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    * { box-sizing: border-box; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: #0d1117;
       color: #f0f6fc;
+      text-align: center;
+      padding: 40px 20px;
+      margin: 0;
+    }
+    h1 { color: #58a6ff; margin-bottom: 10px; }
+    p.subtitle { color: #8b949e; font-size: 1.1rem; margin-bottom: 30px; }
+    .container {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 24px;
+      width: 280px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
+      justify-content: space-between;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     }
-    h1 {
-      color: #58a6ff;
-      margin-bottom: 8px;
-    }
-    p {
-      color: #8b949e;
-      margin-bottom: 20px;
-      font-size: 0.95rem;
-    }
-    .game-container {
-      position: relative;
-      width: 640px;
-      height: 480px;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-      border: 2px solid #30363d;
-      background: #161b22;
-    }
-    video {
-      display: none;
-    }
-    canvas {
-      width: 100%;
-      height: 100%;
-      transform: scaleX(-1); /* Mirror camera feed */
-    }
-    .status-badge {
-      position: absolute;
-      top: 15px;
-      left: 15px;
-      background: rgba(22, 27, 34, 0.85);
-      border: 1px solid #30363d;
-      color: #3fb950;
-      padding: 8px 14px;
-      border-radius: 20px;
+    .card h3 { margin-top: 0; color: #f0f6fc; font-size: 1.25rem; }
+    .card p { color: #8b949e; font-size: 0.9rem; flex-grow: 1; }
+    .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+    .btn {
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 6px;
+      text-decoration: none;
       font-weight: 600;
-      font-size: 0.85rem;
-      pointer-events: none;
+      font-size: 14px;
+      flex: 1;
+      text-align: center;
     }
+    .btn-live { background-color: #238636; color: #ffffff; }
+    .btn-download { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+    .btn:hover { opacity: 0.85; }
   </style>
 </head>
 <body>
 
-  <h1>🧩 Pinch Puzzle Filter</h1>
-  <p>Pinch your index finger and thumb together to grab blocks and move them to matching targets!</p>
+  <h1>🎭 MediaPipe Interactive Collection</h1>
+  <p class="subtitle">Select any filter below to launch it live in your browser or download the source file.</p>
 
-  <div class="game-container">
-    <div id="status" class="status-badge">Starting camera...</div>
-    <video id="webcam" playsinline></video>
-    <canvas id="canvas_output" width="640" height="480"></canvas>
+  <div class="container">
+
+    <!-- Card 1: Finger Filter -->
+    <div class="card">
+      <div>
+        <h3>Finger Filter</h3>
+        <p>Interactive tracking filter powered by MediaPipe hand gesture recognition.</p>
+      </div>
+      <div class="btn-group">
+        <a href="finger_filter.html" class="btn btn-live">Try Live</a>
+        <a href="finger_filter.html" download="finger_filter.html" class="btn btn-download">Download</a>
+      </div>
+    </div>
+
+    <!-- Card 2: Pinch Puzzle Filter -->
+    <div class="card">
+      <div>
+        <h3>Pinch Puzzle Filter</h3>
+        <p>An interactive puzzle experience using pinch gesture controls.</p>
+      </div>
+      <div class="btn-group">
+        <a href="pinch_puzzle filter.html" class="btn btn-live">Try Live</a>
+        <a href="pinch_puzzle filter.html" download="pinch_puzzle_filter.html" class="btn btn-download">Download</a>
+      </div>
+    </div>
+
+    <!-- Card 3: Zen Sand Garden -->
+    <div class="card">
+      <div>
+        <h3>Zen Sand Garden</h3>
+        <p>Relaxing sand simulation interactive experience.</p>
+      </div>
+      <div class="btn-group">
+        <a href="zen-sand-garden.html" class="btn btn-live">Try Live</a>
+        <a href="zen-sand-garden.html" download="zen-sand-garden.html" class="btn btn-download">Download</a>
+      </div>
+    </div>
+
   </div>
 
-  <script>
-    const videoElement = document.getElementById('webcam');
-    const canvasElement = document.getElementById('canvas_output');
-    const canvasCtx = canvasElement.getContext('2d');
-    const statusBadge = document.getElementById('status');
-
-    // State Variables
-    let isPinching = false;
-    let pinchPoint = { x: 0, y: 0 };
-    let grabbedPiece = null;
-
-    // Puzzle Data: Targets and Movable Pieces
-    const pieces = [
-      { id: 1, x: 80,  y: 80,  targetX: 450, targetY: 100, size: 70, color: '#f85149', label: '1', locked: false },
-      { id: 2, x: 80,  y: 200, targetX: 450, targetY: 200, size: 70, color: '#238636', label: '2', locked: false },
-      { id: 3, x: 80,  y: 320, targetX: 450, targetY: 300, size: 70, color: '#1f6feb', label: '3', locked: false }
-    ];
-
-    // MediaPipe Hands Setup
-    const hands = new Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-    });
-
-    hands.setOptions({
-      maxNumHands: 1,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.7,
-      minTrackingConfidence: 0.7
-    });
-
-    hands.onResults(onResults);
-
-    // Initialize Camera
-    const camera = new Camera(videoElement, {
-      onFrame: async () => {
-        await hands.send({ image: videoElement });
-      },
-      width: 640,
-      height: 480
-    });
-    camera.start().then(() => {
-      statusBadge.innerText = "Camera Active - Pinch to Play!";
-    });
-
-    // Main Processing Loop
-    function onResults(results) {
-      // 1. Draw Mirror Video Background
-      canvasCtx.save();
-      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-
-      // 2. Process Hand Landmarks
-      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-        const landmarks = results.multiHandLandmarks[0];
-
-        // Landmark 4 = Thumb Tip, Landmark 8 = Index Tip
-        // Coordinates in MediaPipe are normalized (0.0 - 1.0)
-        // Since canvas is mirrored, x is flipped: (1 - x)
-        const thumbX = (1 - landmarks[4].x) * canvasElement.width;
-        const thumbY = landmarks[4].y * canvasElement.height;
-        const indexX = (1 - landmarks[8].x) * canvasElement.width;
-        const indexY = landmarks[8].y * canvasElement.height;
-
-        // Calculate Midpoint & Pinch Distance
-        pinchPoint.x = (thumbX + indexX) / 2;
-        pinchPoint.y = (thumbY + indexY) / 2;
-
-        const distance = Math.hypot(thumbX - indexX, thumbY - indexY);
-
-        // Distance threshold for Pinch (in pixels)
-        const pinchThreshold = 40;
-        isPinching = distance < pinchThreshold;
-
-        // Draw Pinch Visual Indicator
-        canvasCtx.beginPath();
-        canvasCtx.arc(pinchPoint.x, pinchPoint.y, isPinching ? 12 : 8, 0, 2 * Math.PI);
-        canvasCtx.fillStyle = isPinching ? '#38d419' : '#e3b341';
-        canvasCtx.fill();
-        canvasCtx.strokeStyle = '#ffffff';
-        canvasCtx.lineWidth = 2;
-        canvasCtx.stroke();
-
-        // Connect Index and Thumb with Line
-        canvasCtx.beginPath();
-        canvasCtx.moveTo(thumbX, thumbY);
-        canvasCtx.lineTo(indexX, indexY);
-        canvasCtx.strokeStyle = isPinching ? '#38d419' : 'rgba(255, 255, 255, 0.5)';
-        canvasCtx.lineWidth = 3;
-        canvasCtx.stroke();
-
-        // Puzzle Logic
-        handlePuzzleLogic();
-      } else {
-        // If hand is lost, release any held piece
-        grabbedPiece = null;
-      }
-
-      // 3. Render Puzzle Pieces and Target Zones
-      drawPuzzle();
-
-      canvasCtx.restore();
-    }
-
-    // Puzzle Drag-and-Drop Logic
-    function handlePuzzleLogic() {
-      if (isPinching) {
-        if (!grabbedPiece) {
-          // Check if pinch is inside any unlocked piece
-          for (let piece of pieces) {
-            if (!piece.locked) {
-              const inX = pinchPoint.x >= piece.x && pinchPoint.x <= piece.x + piece.size;
-              const inY = pinchPoint.y >= piece.y && pinchPoint.y <= piece.y + piece.size;
-              if (inX && inY) {
-                grabbedPiece = piece;
-                break;
-              }
-            }
-          }
-        } else {
-          // Drag grabbed piece
-          grabbedPiece.x = pinchPoint.x - grabbedPiece.size / 2;
-          grabbedPiece.y = pinchPoint.y - grabbedPiece.size / 2;
-        }
-      } else {
-        // Release piece and check for snap to target
-        if (grabbedPiece) {
-          const distToTarget = Math.hypot(
-            (grabbedPiece.x + grabbedPiece.size / 2) - (grabbedPiece.targetX + grabbedPiece.size / 2),
-            (grabbedPiece.y + grabbedPiece.size / 2) - (grabbedPiece.targetY + grabbedPiece.size / 2)
-          );
-
-          // If within 50px of target, lock it into place
-          if (distToTarget < 50) {
-            grabbedPiece.x = grabbedPiece.targetX;
-            grabbedPiece.y = grabbedPiece.targetY;
-            grabbedPiece.locked = true;
-          }
-
-          grabbedPiece = null;
-        }
-      }
-
-      // Check for Win Condition
-      const allLocked = pieces.every(p => p.locked);
-      if (allLocked) {
-        statusBadge.innerText = "🎉 Puzzle Solved!";
-        statusBadge.style.borderColor = "#238636";
-        statusBadge.style.color = "#3fb950";
-      }
-    }
-
-    // Draw Targets and Pieces on Canvas
-    function drawPuzzle() {
-      pieces.forEach(p => {
-        // Draw Target Zone (Dashed outline)
-        canvasCtx.save();
-        canvasCtx.strokeStyle = p.color;
-        canvasCtx.lineWidth = 3;
-        canvasCtx.setLineDash([8, 6]);
-        canvasCtx.strokeRect(p.targetX, p.targetY, p.size, p.size);
-        canvasCtx.restore();
-
-        // Draw Movable Piece
-        canvasCtx.fillStyle = p.locked ? '#238636' : p.color;
-        canvasCtx.fillRect(p.x, p.y, p.size, p.size);
-        canvasCtx.strokeStyle = '#ffffff';
-        canvasCtx.lineWidth = 2;
-        canvasCtx.strokeRect(p.x, p.y, p.size, p.size);
-
-        // Draw Label Inside Piece
-        canvasCtx.fillStyle = '#ffffff';
-        canvasCtx.font = 'bold 20px sans-serif';
-        canvasCtx.textAlign = 'center';
-        canvasCtx.textBaseline = 'middle';
-        // Note: Flipping text scale so it renders normally on mirrored canvas
-        canvasCtx.save();
-        canvasCtx.translate(p.x + p.size / 2, p.y + p.size / 2);
-        canvasCtx.scale(-1, 1);
-        canvasCtx.fillText(p.locked ? '✓' : p.label, 0, 0);
-        canvasCtx.restore();
-      });
-    }
-  </script>
 </body>
 </html>
