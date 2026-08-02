@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TouchDesigner // Band Scanner Pipeline</title>
+  <style>
+    :root {
+      --glow: #00ff88;
+      --glow2: #00f5d4;
+      --bg: #000000;
+      --panel: rgba(8, 14, 10, 0.92);
+      --mono: 'Courier New', Courier, monospace;
+      --red: #ff2244;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--glow);
+      font-family: var(--mono);
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    #app-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #010101;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+    }
+
+    #baseCanvas    { z-index: 1; }
+    #overlayCanvas { z-index: 2; pointer-events: auto; cursor: crosshair; }
+
+    /* ── Start Button ── */
+    #startButton {
+      position: absolute;
+      bottom: 60px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel);
+      border: 2px solid var(--glow);
+      color: var(--glow);
+      padding: 14px 28px;
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      transition: all 0.3s;
+      box-shadow: 0 0 15px rgba(0,255,136,0.2);
+      z-index: 10;
+      border-radius: 2px;
+      backdrop-filter: blur(5px);
+    }
+    #startButton:hover {
+      background: var(--glow); color: #000;
+      box-shadow: 0 0 30px rgba(0,255,136,0.8);
+      transform: translateX(-50%) translateY(-2px);
+    }
+    #startButton.hidden { display: none; }
+
+    #loadingIndicator {
+      position: absolute;
+      top: 20px; right: 20px;
+      font-size: 12px;
+      opacity: 0.7;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    #credit {
+      position: absolute;
+      bottom: 16px; right: 20px;
+      z-index: 10;
+      font-family: var(--mono);
+      font-size: 11px;
+      text-align: right;
+      color: rgba(0,255,136,0.55);
+      text-shadow: 0 0 6px rgba(0,255,136,0.25);
+      pointer-events: none;
+      letter-spacing: 0.5px;
+    }
+    #credit .credit-name { color: var(--glow); font-weight: bold; }
+    #credit a { color: var(--glow2); text-decoration: none; pointer-events: auto; }
+    #credit a:hover { text-decoration: underline; }
+
+    /* ── Filter Editor Panel ── */
+    #filterEditor {
+      position: absolute;
+      z-index: 20;
+      background: var(--panel);
+      border: 1px solid var(--glow);
+      box-shadow: 0 0 20px rgba(0,255,136,0.3);
+      padding: 16px 20px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--glow);
+      min-width: 220px;
+      display: none;
+      border-radius: 2px;
+      backdrop-filter: blur(10px);
+    }
+    #filterEditor.visible { display: block; }
+
+    #filterEditor h3 {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      border-bottom: 1px solid rgba(0,255,136,0.3);
+      padding-bottom: 8px;
+      color: var(--glow2);
+    }
+
+    .filter-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .filter-row label {
+      font-size: 10px;
+      letter-spacing: 1px;
+      opacity: 0.7;
+      text-transform: uppercase;
+    }
+
+    .filter-row .btn-group {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: 1px solid rgba(0,255,136,0.4);
+      color: var(--glow);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 4px 8px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      border-radius: 1px;
+      transition: all 0.15s;
+      text-transform: uppercase;
+    }
+    .mode-btn:hover   { border-color: var(--glow); background: rgba(0,255,136,0.1); }
+    .mode-btn.active  { background: var(--glow); color: #000; border-color: var(--glow); }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+    .slider-row label { font-size: 10px; letter-spacing: 1px; opacity: 0.7; text-transform: uppercase; }
+    .slider-row input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 3px;
+      background: rgba(0,255,136,0.2);
+      outline: none;
+      border-radius: 2px;
+    }
+    .slider-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--glow);
+      cursor: pointer;
+    }
+
+    .close-btn {
+      width: 100%;
+      margin-top: 4px;
+      background: transparent;
+      border: 1px solid rgba(255,34,68,0.5);
+      color: var(--red);
+      font-family: var(--mono);
+      font-size: 10px;
+      padding: 5px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: all 0.15s;
+    }
+    .close-btn:hover { background: rgba(255,34,68,0.15); border-color: var(--red); }
+
+    /* ── Edit indicator on bands ── */
+    .edit-hint {
+      position: absolute;
+      z-index: 15;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--glow2);
+      letter-spacing: 1px;
+      pointer-events: none;
+      text-transform: uppercase;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .edit-hint.visible { opacity: 1; }
+  </style>
+
+<!--
+ENHANCEMENT PATCH:
+- Prepared for advanced filter expansion
+- Placeholder for Spider-Verse, Multiverse Glitch, Anime, Hologram filters
+- Intended improvements: polygon hit-testing, per-filter controls, stabilization
+-->
+
+</head>
+<body>
+<div id="app-container">
+  <canvas id="baseCanvas"    width="1280" height="720"></canvas>
+  <canvas id="overlayCanvas" width="1280" height="720"></canvas>
+
+  <button id="startButton">Initialize Camera Pipeline</button>
+  <div id="loadingIndicator">PIPELINE: STANDBY</div>
+  <div id="credit">
+    <div class="credit-name">Shivam Vijay Bharre</div>
+    <div><a href="https://www.instagram.com/shivam__bharre/" target="_blank" rel="noopener noreferrer">@shivam__bharre</a></div>
+  </div>
+
+  <!-- Filter Editor -->
+  <div id="filterEditor">
+    <h3>BAND FILTER EDITOR — <span id="editorTitle">GAP 0</span></h3>
+
+    <div class="filter-row">
+      <label>Color Mode</label>
+      <div class="btn-group" id="modeButtons">
+        <button class="mode-btn" data-mode="0">THERMAL</button>
+        <button class="mode-btn" data-mode="1">NEON-IR</button>
+        <button class="mode-btn" data-mode="2">VINTAGE</button>
+        <button class="mode-btn" data-mode="3">BLUEPRINT</button>
+        <button class="mode-btn" data-mode="4">INVERT</button>
+        <button class="mode-btn" data-mode="5">PIXELATE</button>
+        <button class="mode-btn" data-mode="6">COMIC</button>
+      </div>
+    </div>
+
+    <div class="slider-row">
+      <label>Chroma Offset: <span id="chromaVal">0.0</span> px</label>
+      <input type="range" id="chromaSlider" min="0" max="24" step="0.5" value="0">
+    </div>
+
+    <div class="slider-row">
+      <label>Brightness: <span id="brightVal">1.0</span></label>
+      <input type="range" id="brightSlider" min="0.2" max="2.0" step="0.05" value="1.0">
+    </div>
+
+    <div class="slider-row">
+      <label>Contrast: <span id="contrastVal">1.0</span></label>
+      <input type="range" id="contrastSlider" min="0.2" max="3.0" step="0.05" value="1.0">
+    </div>
+
+    <button class="close-btn" id="closeEditor">✕ CLOSE</button>
+  </div>
+</div>
+
+<video id="webcam" autoplay playsinline muted style="display:none;"></video>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+<script>
+// ════════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════════
+const CW = 1280, CH = 720;
+const LERP      = 0.38;    // ↑ was 0.15 — much snappier tracking
+const LERP_SLOW = 0.12;    // for chroma/UI smoothing
+const PINCH_THRESH = 38;
+const MAX_CHROMA   = 14;
+const GLITCH_INT   = 100;
+const PIXEL_BLOCK  = 16;   // mosaic block size for the PIXELATE filter
+
+const MODE_THERMAL = 0, MODE_NEON = 1, MODE_VINTAGE = 2, MODE_BLUEPRINT = 3,
+      MODE_INVERT = 4, MODE_PIXELATE = 5, MODE_COMIC = 6;
+const MODE_NAMES = ["THERMAL","NEON-IR","VINTAGE","BLUEPRINT","INVERT","PIXELATE","COMIC"];
+const NUM_MODES = MODE_NAMES.length;
+
+// Per-gap settings (mutable)
+const gapSettings = [
+  { mode: 0, chroma: 0, brightness: 1.0, contrast: 1.0 },
+  { mode: 1, chroma: 0, brightness: 1.0, contrast: 1.0 },
+  { mode: 2, chroma: 0, brightness: 1.0, contrast: 1.0 },
+  { mode: 3, chroma: 0, brightness: 1.0, contrast: 1.0 },
+];
+
+// Global chroma (driven by hand position, overrides if per-band is 0)
+let globalChromaTarget = 0, globalChromaCurrent = 0;
+
+// ════════════════════════════════════════════════════
+//  DOM REFERENCES
+// ════════════════════════════════════════════════════
+const video     = document.getElementById('webcam');
+const startBtn  = document.getElementById('startButton');
+const loadingEl = document.getElementById('loadingIndicator');
+const baseCanvas    = document.getElementById('baseCanvas');
+const baseCtx       = baseCanvas.getContext('2d');
+const overlayCanvas = document.getElementById('overlayCanvas');
+const overlayCtx    = overlayCanvas.getContext('2d');
+
+const offscreen = document.createElement('canvas');
+offscreen.width = CW; offscreen.height = CH;
+const offCtx = offscreen.getContext('2d', { willReadFrequently: true });
+
+const scratch = document.createElement('canvas');
+scratch.width = CW; scratch.height = CH;
+const scrCtx = scratch.getContext('2d', { willReadFrequently: true });
+
+// ════════════════════════════════════════════════════
+//  FILTER EDITOR STATE
+// ════════════════════════════════════════════════════
+let editingGap = -1;
+const filterEditor = document.getElementById('filterEditor');
+const editorTitle  = document.getElementById('editorTitle');
+const modeButtons  = document.querySelectorAll('.mode-btn');
+const chromaSlider = document.getElementById('chromaSlider');
+const brightSlider = document.getElementById('brightSlider');
+const contrastSlider = document.getElementById('contrastSlider');
+const chromaVal    = document.getElementById('chromaVal');
+const brightVal    = document.getElementById('brightVal');
+const contrastVal  = document.getElementById('contrastVal');
+
+// Gap click detection: store last rendered band centroids
+const gapCentroids = [null, null, null, null]; // {x, y} in canvas pixels
+
+function openEditor(gapIdx) {
+  editingGap = gapIdx;
+  const s = gapSettings[gapIdx];
+  editorTitle.textContent = `GAP ${gapIdx} — ${['THUMB-IDX','IDX-MID','MID-RING','RING-PINK'][gapIdx]}`;
+  modeButtons.forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.mode) === s.mode);
+  });
+  chromaSlider.value = s.chroma;
+  chromaVal.textContent = s.chroma.toFixed(1);
+  brightSlider.value = s.brightness;
+  brightVal.textContent = s.brightness.toFixed(2);
+  contrastSlider.value = s.contrast;
+  contrastVal.textContent = s.contrast.toFixed(2);
+
+  // Position editor near the centroid
+  const cent = gapCentroids[gapIdx];
+  if (cent) {
+    const rect = overlayCanvas.getBoundingClientRect();
+    const sx = (cent.x / CW) * rect.width + rect.left;
+    const sy = (cent.y / CH) * rect.height + rect.top;
+    let ex = sx + 20, ey = sy - 20;
+    const ew = 240, eh = 300;
+    if (ex + ew > window.innerWidth)  ex = sx - ew - 20;
+    if (ey + eh > window.innerHeight) ey = sy - eh;
+    if (ey < 0) ey = 10;
+    filterEditor.style.left = `${ex}px`;
+    filterEditor.style.top  = `${ey}px`;
+  } else {
+    filterEditor.style.left = '20px';
+    filterEditor.style.top  = '60px';
+  }
+  filterEditor.classList.add('visible');
+}
+
+modeButtons.forEach(b => {
+  b.addEventListener('click', () => {
+    if (editingGap < 0) return;
+    gapSettings[editingGap].mode = parseInt(b.dataset.mode);
+    modeButtons.forEach(x => x.classList.toggle('active', x === b));
+    cycleGlitch();
+  });
+});
+
+chromaSlider.addEventListener('input', () => {
+  if (editingGap < 0) return;
+  gapSettings[editingGap].chroma = parseFloat(chromaSlider.value);
+  chromaVal.textContent = parseFloat(chromaSlider.value).toFixed(1);
+});
+
+brightSlider.addEventListener('input', () => {
+  if (editingGap < 0) return;
+  gapSettings[editingGap].brightness = parseFloat(brightSlider.value);
+  brightVal.textContent = parseFloat(brightSlider.value).toFixed(2);
+});
+
+contrastSlider.addEventListener('input', () => {
+  if (editingGap < 0) return;
+  gapSettings[editingGap].contrast = parseFloat(contrastSlider.value);
+  contrastVal.textContent = parseFloat(contrastSlider.value).toFixed(2);
+});
+
+document.getElementById('closeEditor').addEventListener('click', () => {
+  filterEditor.classList.remove('visible');
+  editingGap = -1;
+});
+
+// ════════════════════════════════════════════════════
+//  CANVAS CLICK → OPEN EDITOR
+// ════════════════════════════════════════════════════
+overlayCanvas.addEventListener('click', (e) => {
+  const rect = overlayCanvas.getBoundingClientRect();
+  const cx = ((e.clientX - rect.left) / rect.width)  * CW;
+  const cy = ((e.clientY - rect.top)  / rect.height) * CH;
+
+  // Find nearest gap centroid within 120px
+  let best = -1, bestDist = 120;
+  gapCentroids.forEach((c, i) => {
+    if (!c) return;
+    const d = Math.hypot(cx - c.x, cy - c.y);
+    if (d < bestDist) { bestDist = d; best = i; }
+  });
+
+  if (best >= 0) {
+    openEditor(best);
+  } else if (!hasHands) {
+    // mouse fallback: cycle global mode
+    cycleColorMode();
+  }
+});
+
+// Mouse move fallback
+overlayCanvas.addEventListener('mousemove', (e) => {
+  const rect = overlayCanvas.getBoundingClientRect();
+  mouseX = ((e.clientX - rect.left) / rect.width)  * CW;
+  mouseY = ((e.clientY - rect.top)  / rect.height) * CH;
+  if (!hasHands) globalChromaTarget = (mouseX / CW) * MAX_CHROMA;
+});
+
+// ════════════════════════════════════════════════════
+//  APPLICATION STATE
+// ════════════════════════════════════════════════════
+let mouseX = CW / 2, mouseY = CH / 2;
+let hasHands = false, framesSinceHand = 999, wasPinching = false;
+let globalModeOffset = 0;
+let frameCount = 0, lastFrameTime = performance.now();
+let fpsFrames = [], currentFps = 0;
+let glitchActive = false, glitchOffset = 0, glitchDuration = 0, glitchStartFrame = 0;
+let hands = null, videoActive = false, cameraError = null;
+let isProcessing = false, latestHandResults = null;
+let lerpedRight = null, lerpedLeft = null;
+let handsReady = false, lastResultsTime = performance.now(), consecutiveFailures = 0;
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout after ' + ms + 'ms')), ms))
+  ]);
+}
+
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [0,9],[9,10],[10,11],[11,12],
+  [0,13],[13,14],[14,15],[15,16],
+  [0,17],[17,18],[18,19],[19,20],
+  [5,9],[9,13],[13,17]
+];
+
+// ════════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════════
+function lm2px(lm) {
+  return { x: (1 - lm.x) * CW, y: lm.y * CH };
+}
+
+function lerpLM(cur, tgt) {
+  if (!tgt) return null;
+  if (!cur) return tgt.map(p => ({x: p.x, y: p.y}));
+  for (let i = 0; i < tgt.length; i++) {
+    cur[i].x += (tgt[i].x - cur[i].x) * LERP;
+    cur[i].y += (tgt[i].y - cur[i].y) * LERP;
+  }
+  return cur;
+}
+
+function mirrorLM(lm) {
+  return lm.map(p => ({x: 1 - p.x, y: p.y}));
+}
+
+function cycleColorMode() {
+  globalModeOffset = (globalModeOffset + 1) % NUM_MODES;
+  cycleGlitch();
+}
+
+function cycleGlitch() {
+  glitchActive = true;
+  glitchDuration = 7;
+  glitchOffset = (Math.random() > 0.5 ? 1 : -1) * 26;
+  glitchStartFrame = frameCount;
+}
+
+// ════════════════════════════════════════════════════
+//  CAMERA & MEDIAPIPE
+// ════════════════════════════════════════════════════
+startBtn.addEventListener('click', () => {
+  startBtn.classList.add('hidden');
+  loadingEl.textContent = "PIPELINE: INITIALIZING";
+
+  const mpReady = initMediaPipe();
+
+  navigator.mediaDevices.getUserMedia({
+    video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" }
+  }).then(async stream => {
+    video.srcObject = stream;
+    video.onloadedmetadata = async () => {
+      video.play();
+      videoActive = true;
+      await mpReady; // don't claim ACTIVE until the model has actually finished loading
+      loadingEl.textContent = handsReady ? "PIPELINE: ACTIVE" : "PIPELINE: ACTIVE (MP UNAVAILABLE — MOUSE FALLBACK)";
+    };
+  }).catch(err => {
+    cameraError = err.message || "Permission Denied";
+    loadingEl.textContent = "PIPELINE: CAMERA_ERROR";
+  });
+});
+
+function initMediaPipe() {
+  if (typeof Hands === 'undefined') {
+    loadingEl.textContent = "PIPELINE: MP_MISSING"; return Promise.resolve(false);
+  }
+  try {
+    hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+    hands.setOptions({
+      maxNumHands: 2,
+      modelComplexity: 1,          // full model — the lite model (0) was trading away reliability for speed
+      minDetectionConfidence: 0.6,
+      minTrackingConfidence: 0.5
+    });
+    hands.onResults(r => {
+      latestHandResults = r;
+      lastResultsTime = performance.now();
+      consecutiveFailures = 0;
+    });
+    loadingEl.textContent = "PIPELINE: WARMING UP";
+    // initialize() resolves once the WASM/model assets are actually loaded — calling send()
+    // before this was ready is what could leave the pipeline silently dead for a session.
+    return withTimeout(hands.initialize(), 15000)
+      .then(() => {
+        handsReady = true;
+        lastResultsTime = performance.now();
+        loadingEl.textContent = "PIPELINE: READY";
+        return true;
+      })
+      .catch(e => {
+        console.error('[Pipeline] MediaPipe init failed/timed out', e);
+        cameraError = "MediaPipe Init Timed Out";
+        loadingEl.textContent = "PIPELINE: MP_INIT_FAILED";
+        return false;
+      });
+  } catch(e) {
+    console.error('[Pipeline] MediaPipe init threw', e);
+    cameraError = "MediaPipe Init Failed";
+    return Promise.resolve(false);
+  }
+}
+
+async function processHands() {
+  if (!hands || !handsReady || isProcessing || !videoActive || video.paused || video.ended) return;
+  isProcessing = true;
+  try {
+    await withTimeout(hands.send({ image: video }), 2500);
+  } catch (e) {
+    consecutiveFailures++;
+    console.warn('[Pipeline] hands.send failed/timed out', consecutiveFailures, e);
+  }
+  isProcessing = false;
+}
+
+// ── Watchdog: MediaPipe's legacy solutions API can silently stall (no error, no
+// callback, forever) after a bad frame. If we haven't gotten a results callback in
+// a while — despite the camera being active — or too many sends have failed in a
+// row, tear down and rebuild the pipeline instead of staying dead for the session. ──
+let watchdogRebuilding = false;
+setInterval(() => {
+  if (!videoActive || !handsReady || watchdogRebuilding) return;
+  const stalled = (performance.now() - lastResultsTime) > 5000;
+  if (stalled || consecutiveFailures >= 5) {
+    console.warn('[Pipeline] watchdog: pipeline looks stalled, reinitializing', { stalled, consecutiveFailures });
+    reinitMediaPipe();
+  }
+}, 2000);
+
+async function reinitMediaPipe() {
+  watchdogRebuilding = true;
+  handsReady = false;
+  loadingEl.textContent = "PIPELINE: RECOVERING";
+  try { hands?.close?.(); } catch (e) {}
+  hands = null;
+  consecutiveFailures = 0;
+  await initMediaPipe();
+  watchdogRebuilding = false;
+}
+
+// ════════════════════════════════════════════════════
+//  SIMULATED HANDS (no camera fallback)
+// ════════════════════════════════════════════════════
+function simulatedHand(cx, cy, isLeft, t) {
+  const spread = 60 + 25 * Math.sin(t * 2.5);
+  const d = isLeft ? 1 : -1;
+  const offsets = [
+    {x:0,y:0},
+    {x:d*30,y:-20},{x:d*65,y:-35},{x:d*95,y:-50},{x:d*115,y:-60},
+    {x:d*35,y:-65},{x:d*55,y:-110},{x:d*65,y:-140},{x:d*75,y:-165},
+    {x:d*5,y:-75},{x:d*5,y:-125},{x:d*5,y:-165},{x:d*5,y:-195},
+    {x:-d*25,y:-70},{x:-d*40,y:-115},{x:-d*50,y:-150},{x:-d*60,y:-180},
+    {x:-d*55,y:-55},{x:-d*80,y:-90},{x:-d*95,y:-115},{x:-d*110,y:-135}
+  ];
+  const sc = spread / 60;
+  return offsets.map(o => ({
+    x: 1 - (cx + o.x * sc) / CW,
+    y:     (cy + o.y * sc) / CH
+  }));
+}
+
+// ════════════════════════════════════════════════════
+//  COLOR PALETTES
+// ════════════════════════════════════════════════════
+function lerpc(a, b, f) {
+  return { r: a.r+(b.r-a.r)*f, g: a.g+(b.g-a.g)*f, b: a.b+(b.b-a.b)*f };
+}
+
+function thermalColor(t) {
+  const c = [
+    {r:13,g:2,b:33},{r:0,g:245,b:212},{r:170,g:255,b:0},
+    {r:255,g:107,b:0},{r:255,g:251,b:230}
+  ];
+  if (t <= 0.2) return lerpc(c[0],c[1],t/0.2);
+  if (t <= 0.4) return lerpc(c[1],c[2],(t-0.2)/0.2);
+  if (t <= 0.6) return lerpc(c[2],c[3],(t-0.4)/0.2);
+  if (t <= 0.8) return lerpc(c[3],c[4],(t-0.6)/0.2);
+  return lerpc(c[4],{r:255,g:255,b:255},Math.min(1,(t-0.8)/0.2));
+}
+
+function neonColor(t) {
+  const c = [{r:0,g:0,b:0},{r:255,g:0,b:255},{r:0,g:255,b:255},{r:255,g:255,b:255}];
+  if (t <= 0.333) return lerpc(c[0],c[1],t/0.333);
+  if (t <= 0.666) return lerpc(c[1],c[2],(t-0.333)/0.333);
+  return lerpc(c[2],c[3],Math.min(1,(t-0.666)/0.334));
+}
+
+function blueprintColor(t) {
+  return lerpc({r:10,g:22,b:40},{r:232,g:244,b:248},t);
+}
+
+// ════════════════════════════════════════════════════
+//  PROCEDURAL BACKGROUND
+// ════════════════════════════════════════════════════
+function drawBg(ctx) {
+  const t = performance.now() / 1000;
+  const grad = ctx.createLinearGradient(0,0,0,CH);
+  grad.addColorStop(0,'#040b14');
+  grad.addColorStop(1,'#0c1d2d');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0,0,CW,CH);
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(0,255,136,0.07)";
+  ctx.lineWidth = 1;
+  const gs = 40, sx = (t*40)%gs, sy = (t*20)%gs;
+  for (let x = sx; x < CW; x += gs) {
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,CH); ctx.stroke();
+  }
+  for (let y = sy; y < CH; y += gs) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(CW,y); ctx.stroke();
+  }
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(0,255,136,0.45)";
+  ctx.lineWidth = 2;
+  ctx.shadowColor = "rgba(0,255,136,0.3)";
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  for (let x = 0; x <= CW; x += 15) {
+    const y = CH/2 + Math.sin(x*0.004+t*1.5)*110 + Math.cos(x*0.008-t*0.8)*45;
+    x===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════════════
+//  APPLY PER-PIXEL COLOR FILTER
+// ════════════════════════════════════════════════════
+function applyPixelFilter(data, idx, r, g, b, mode, brightness, contrast, lumT, px, py, edgeMag) {
+  // Apply brightness & contrast to raw RGB before palette
+  function adj(v) {
+    v = v / 255.0;
+    v = (v - 0.5) * contrast + 0.5; // contrast
+    v = v * brightness;              // brightness
+    return Math.max(0, Math.min(1, v)) * 255;
+  }
+
+  r = adj(r); g = adj(g); b = adj(b);
+  const lum = 0.299*r + 0.587*g + 0.114*b;
+  const t = lum / 255.0;
+
+  let col;
+  if      (mode === MODE_THERMAL) col = thermalColor(t);
+  else if (mode === MODE_NEON) col = neonColor(t);
+  else if (mode === MODE_VINTAGE) {
+    // Vintage Film
+    let or = r*0.393 + g*0.769 + b*0.189;
+    let og = r*0.349 + g*0.686 + b*0.168;
+    let ob = r*0.272 + g*0.534 + b*0.131;
+    const grain = (Math.random() - 0.5) * 30;
+    or += grain; og += grain; ob += grain;
+    col = {
+      r: Math.max(0, Math.min(255, or)),
+      g: Math.max(0, Math.min(255, og)),
+      b: Math.max(0, Math.min(255, ob))
+    };
+  }
+  else if (mode === MODE_BLUEPRINT) col = blueprintColor(t);
+  else if (mode === MODE_INVERT) col = { r: 255-r, g: 255-g, b: 255-b };
+  else if (mode === MODE_PIXELATE) {
+    // Source sampling was already block-snapped upstream (real mosaic, not just color
+    // rounding). Here we just add thin dark grid lines between tiles for that classic
+    // mosaic-print look.
+    const onGridLine = (Math.floor(px) % PIXEL_BLOCK === 0) || (Math.floor(py) % PIXEL_BLOCK === 0);
+    col = onGridLine ? { r: r*0.35, g: g*0.35, b: b*0.35 } : { r, g, b };
+  }
+  else if (mode === MODE_COMIC) {
+    // Pop-art comic look: flat posterized "cel-shaded" color as the base paper tone,
+    // a halftone stipple of dark dots in shadow regions (classic Ben-Day print shading),
+    // and solid black ink outlines wherever the cheap edge-gradient is strong.
+    const levels = 4;
+    const step = 255 / (levels - 1);
+    const pr = Math.round(r / step) * step;
+    const pg = Math.round(g / step) * step;
+    const pb = Math.round(b / step) * step;
+
+    if (edgeMag > 0.16) {
+      col = { r: 14, g: 12, b: 12 }; // ink outline
+    } else {
+      const dotSize = 5;
+      const cx = (((px % dotSize) + dotSize) % dotSize) - dotSize/2;
+      const cy = (((py % dotSize) + dotSize) % dotSize) - dotSize/2;
+      const distFromCenter = Math.sqrt(cx*cx + cy*cy);
+      const dotRadius = (1 - t) * (dotSize * 0.78);
+      col = (distFromCenter < dotRadius)
+        ? { r: pr*0.3, g: pg*0.25, b: pb*0.3 }  // shadow stipple dot
+        : { r: pr, g: pg, b: pb };              // flat paper tone
+    }
+  }
+  else col = { r, g, b };
+
+  data[idx]   = col.r;
+  data[idx+1] = col.g;
+  data[idx+2] = col.b;
+}
+
+
+// ════════════════════════════════════════════════════
+//  MAIN DRAW LOOP
+// ════════════════════════════════════════════════════
+function drawFrame() {
+  // FPS
+  const now = performance.now();
+  const delta = now - lastFrameTime;
+  lastFrameTime = now;
+  if (delta > 0) {
+    fpsFrames.push(1000/delta);
+    if (fpsFrames.length > 30) fpsFrames.shift();
+    currentFps = Math.round(fpsFrames.reduce((a,b)=>a+b,0)/fpsFrames.length);
+  }
+
+  // Glitch
+  frameCount++;
+  if (frameCount % GLITCH_INT === 0) {
+    glitchActive = true;
+    glitchDuration = 3 + Math.floor(Math.random()*4);
+    glitchOffset = (Math.random()>0.5?1:-1)*(8+Math.floor(Math.random()*13));
+    glitchStartFrame = frameCount;
+  }
+  if (glitchActive && (frameCount - glitchStartFrame >= glitchDuration)) {
+    glitchActive = false; glitchOffset = 0;
+  }
+
+  globalChromaCurrent += (globalChromaTarget - globalChromaCurrent) * LERP_SLOW;
+
+  // Render video or procedural bg to offscreen
+  if (videoActive && !video.paused && !video.ended) {
+    offCtx.save();
+    offCtx.translate(CW,0); offCtx.scale(-1,1);
+    offCtx.drawImage(video, 0, 0, CW, CH);
+    offCtx.restore();
+  } else {
+    drawBg(offCtx);
+  }
+
+  // ── Parse hand results ──
+  let handCount = 0, isPinching = false;
+  let rightLM = null, leftLM = null;
+
+  if (latestHandResults?.multiHandLandmarks?.length > 0) {
+    framesSinceHand = 0; hasHands = true;
+    handCount = latestHandResults.multiHandLandmarks.length;
+
+    for (let i = 0; i < handCount; i++) {
+      const lm  = latestHandResults.multiHandLandmarks[i];
+      const lab = latestHandResults.multiHandedness[i].label;
+      const p4  = lm2px(lm[4]), p8 = lm2px(lm[8]);
+      if (Math.hypot(p4.x-p8.x, p4.y-p8.y) < PINCH_THRESH) isPinching = true;
+      if (lab === 'Right') rightLM = lm;
+      else leftLM = lm;
+    }
+
+    if (rightLM && !leftLM) leftLM = mirrorLM(rightLM);
+    else if (leftLM && !rightLM) rightLM = mirrorLM(leftLM);
+
+    const ref = leftLM || rightLM;
+    if (ref) globalChromaTarget = (1 - ref[8].x) * MAX_CHROMA;
+  } else {
+    framesSinceHand++;
+    if (framesSinceHand > 20) hasHands = false;
+
+    const t = now / 1000;
+    const rx = Math.max(CW/2+100, mouseX);
+    rightLM = simulatedHand(rx,  mouseY, false, t);
+    leftLM  = simulatedHand(CW-rx, mouseY, true, t);
+  }
+
+  if (isPinching && !wasPinching) cycleColorMode();
+  wasPinching = isPinching;
+
+  lerpedRight = lerpLM(lerpedRight, rightLM);
+  lerpedLeft  = lerpLM(lerpedLeft,  leftLM);
+
+  // ── Base canvas ──
+  baseCtx.fillStyle = "#000";
+  baseCtx.fillRect(0,0,CW,CH);
+  baseCtx.save();
+  baseCtx.filter = "saturate(40%)";
+  baseCtx.drawImage(offscreen,0,0,CW,CH);
+  baseCtx.filter = "none";
+  baseCtx.globalCompositeOperation = "multiply";
+  baseCtx.fillStyle = "rgba(75,75,75,1)";
+  baseCtx.fillRect(0,0,CW,CH);
+  baseCtx.globalCompositeOperation = "source-over";
+  baseCtx.restore();
+
+  overlayCtx.clearRect(0,0,CW,CH);
+
+  // ── 4 finger-gap scanner bands ──
+  if (lerpedRight && lerpedLeft) {
+    const gaps = [
+      { r1:4,  r2:8,  l1:4,  l2:8  },
+      { r1:8,  r2:12, l1:8,  l2:12 },
+      { r1:12, r2:16, l1:12, l2:16 },
+      { r1:16, r2:20, l1:16, l2:20 },
+    ];
+
+    const rawData = offCtx.getImageData(0,0,CW,CH).data;
+
+    gaps.forEach((gap, gi) => {
+      const s = gapSettings[gi];
+      const modeIndex = (s.mode + (hasHands ? 0 : globalModeOffset)) % NUM_MODES;
+
+      // Full 2D quad — works in any orientation
+      const p1 = lm2px(lerpedRight[gap.r1]);
+      const p2 = lm2px(lerpedRight[gap.r2]);
+      const p3 = lm2px(lerpedLeft[gap.l2]);
+      const p4 = lm2px(lerpedLeft[gap.l1]);
+
+      // Store centroid for click detection
+      gapCentroids[gi] = {
+        x: (p1.x+p2.x+p3.x+p4.x)/4,
+        y: (p1.y+p2.y+p3.y+p4.y)/4
+      };
+
+      // Clip and draw to scratch
+      scrCtx.clearRect(0,0,CW,CH);
+      scrCtx.save();
+      scrCtx.beginPath();
+      scrCtx.moveTo(p1.x,p1.y);
+      scrCtx.lineTo(p2.x,p2.y);
+      scrCtx.lineTo(p3.x,p3.y);
+      scrCtx.lineTo(p4.x,p4.y);
+      scrCtx.closePath();
+      scrCtx.clip();
+      scrCtx.drawImage(offscreen,0,0);
+      scrCtx.restore();
+
+      // Bounding box
+      const xs = [p1.x,p2.x,p3.x,p4.x], ys = [p1.y,p2.y,p3.y,p4.y];
+      const mnX = Math.max(0,Math.floor(Math.min(...xs)));
+      const mxX = Math.min(CW-1,Math.ceil(Math.max(...xs)));
+      const mnY = Math.max(0,Math.floor(Math.min(...ys)));
+      const mxY = Math.min(CH-1,Math.ceil(Math.max(...ys)));
+      const w = mxX-mnX+1, h = mxY-mnY+1;
+      if (w <= 0 || h <= 0) return;
+
+      const imgData = scrCtx.getImageData(mnX,mnY,w,h);
+      const data    = imgData.data;
+      const chromaOff = Math.round(s.chroma > 0 ? s.chroma : globalChromaCurrent);
+      const go = glitchActive ? glitchOffset : 0;
+
+      for (let y = 0; y < h; y++) {
+        const canvasY = mnY + y;
+        for (let x = 0; x < w; x++) {
+          const idx = (y*w+x)*4;
+          if (data[idx+3] === 0) continue;
+
+          const canvasX = mnX + x;
+
+          // PIXELATE: snap the *source sample point* to a block grid (not the output
+          // position) so every pixel inside a block reads the same source color —
+          // that's what actually makes a chunky mosaic instead of just quantized colors.
+          let sampleX = canvasX, sampleY = canvasY;
+          if (modeIndex === MODE_PIXELATE) {
+            sampleX = Math.min(CW-1, Math.floor(canvasX / PIXEL_BLOCK) * PIXEL_BLOCK + (PIXEL_BLOCK >> 1));
+            sampleY = Math.min(CH-1, Math.floor(canvasY / PIXEL_BLOCK) * PIXEL_BLOCK + (PIXEL_BLOCK >> 1));
+          }
+
+          let sx = sampleX + go;
+          if (sx < 0) sx = 0; else if (sx >= CW) sx = CW-1;
+
+          let rx = sx + chromaOff; if (rx<0) rx=0; else if(rx>=CW) rx=CW-1;
+          let bx = sx - chromaOff; if (bx<0) bx=0; else if(bx>=CW) bx=CW-1;
+
+          const r = rawData[(sampleY*CW+rx)*4];
+          const g = rawData[(sampleY*CW+sx)*4+1];
+          const b = rawData[(sampleY*CW+bx)*4+2];
+          const lum = (0.299*r + 0.587*g + 0.114*b) / 255;
+
+          // COMIC: cheap 1-tap gradient (vs right/down neighbor) to find ink outline edges
+          let edgeMag = 0;
+          if (modeIndex === MODE_COMIC) {
+            const nx = Math.min(CW-1, sampleX+2);
+            const ny = Math.min(CH-1, sampleY+2);
+            const nIdx = (sampleY*CW+nx)*4, n2Idx = (ny*CW+sampleX)*4;
+            const lumN  = (0.299*rawData[nIdx]  + 0.587*rawData[nIdx+1]  + 0.114*rawData[nIdx+2])  / 255;
+            const lumN2 = (0.299*rawData[n2Idx] + 0.587*rawData[n2Idx+1] + 0.114*rawData[n2Idx+2]) / 255;
+            edgeMag = Math.abs(lum - lumN) + Math.abs(lum - lumN2);
+          }
+
+          applyPixelFilter(data, idx, r, g, b, modeIndex, s.brightness, s.contrast, lum, canvasX, canvasY, edgeMag);
+        }
+      }
+      scrCtx.putImageData(imgData, mnX, mnY);
+      baseCtx.drawImage(scratch,0,0);
+
+      // ── Band borders (white) ──
+      baseCtx.save();
+      baseCtx.strokeStyle = "#fff";
+      baseCtx.lineWidth = 1.5;
+      baseCtx.beginPath();
+      baseCtx.moveTo(p1.x,p1.y); baseCtx.lineTo(p4.x,p4.y); baseCtx.stroke();
+      baseCtx.beginPath();
+      baseCtx.moveTo(p2.x,p2.y); baseCtx.lineTo(p3.x,p3.y); baseCtx.stroke();
+      baseCtx.restore();
+
+      // ── Ticker dots along top edge ──
+      drawTicker(overlayCtx, p1, p4);
+
+      // ── Editing highlight ──
+      if (editingGap === gi) {
+        overlayCtx.save();
+        overlayCtx.strokeStyle = "rgba(0,255,136,0.8)";
+        overlayCtx.lineWidth = 2;
+        overlayCtx.setLineDash([4,4]);
+        overlayCtx.beginPath();
+        overlayCtx.moveTo(p1.x,p1.y);
+        overlayCtx.lineTo(p2.x,p2.y);
+        overlayCtx.lineTo(p3.x,p3.y);
+        overlayCtx.lineTo(p4.x,p4.y);
+        overlayCtx.closePath();
+        overlayCtx.stroke();
+        overlayCtx.setLineDash([]);
+        overlayCtx.restore();
+      }
+
+      // ── Click hint label at centroid ──
+      const cent = gapCentroids[gi];
+      if (cent) {
+        overlayCtx.save();
+        overlayCtx.font = "10px 'Courier New'";
+        overlayCtx.fillStyle = editingGap===gi ? "#00ff88" : "rgba(0,245,212,0.6)";
+        overlayCtx.textAlign = "center";
+        overlayCtx.fillText(`[${MODE_NAMES[modeIndex]}]`, cent.x, cent.y);
+        overlayCtx.restore();
+      }
+    });
+  }
+
+  // ── Scanlines ──
+  baseCtx.save();
+  baseCtx.fillStyle = "rgba(0,0,0,0.07)";
+  for (let y = 0; y < CH; y += 3) baseCtx.fillRect(0,y,CW,1);
+  baseCtx.restore();
+
+  // ── Skeletons ──
+  if (lerpedRight) drawSkeleton(overlayCtx, lerpedRight);
+  if (lerpedLeft)  drawSkeleton(overlayCtx, lerpedLeft);
+
+  // ── HUD ──
+  drawHud(overlayCtx, handCount);
+
+  if (cameraError) drawError(overlayCtx);
+}
+
+function drawTicker(ctx, p1, p2) {
+  const dx = p2.x-p1.x, dy = p2.y-p1.y;
+  const dist = Math.hypot(dx,dy);
+  if (dist === 0) return;
+  const steps = Math.floor(dist/14);
+  const opc = 0.25 + 0.75*(0.5+0.5*Math.sin(4*Math.PI*performance.now()/1000));
+  ctx.save();
+  ctx.fillStyle = `rgba(255,10,50,${opc})`;
+  for (let i = 0; i <= steps; i++) {
+    const f = i/steps;
+    ctx.beginPath();
+    ctx.arc(p1.x+dx*f, p1.y+dy*f, 3.5, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawSkeleton(ctx, lm) {
+  ctx.save();
+  ctx.strokeStyle = "rgba(255,255,255,0.28)";
+  ctx.lineWidth = 1.5;
+  for (const [a,b] of HAND_CONNECTIONS) {
+    const pa = lm2px(lm[a]), pb = lm2px(lm[b]);
+    ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+  }
+  ctx.fillStyle = "#fff";
+  for (const lp of lm) {
+    const p = lm2px(lp);
+    ctx.beginPath(); ctx.arc(p.x,p.y,3.5,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawHud(ctx, handCount) {
+  ctx.save();
+  ctx.font = "13px 'Courier New'";
+  ctx.fillStyle = "#00ff88";
+  ctx.shadowColor = "rgba(0,255,136,0.4)";
+  ctx.shadowBlur = 3;
+  const lines = [
+    `FPS: ${currentFps}`,
+    `HANDS: ${handCount}  CHROMA: ${globalChromaCurrent.toFixed(1)}px`,
+    `CLICK BAND TO EDIT FILTER`,
+    `PINCH TO CYCLE GLOBAL MODE`,
+    `─────────────────────────`,
+    ...gapSettings.map((s,i)=>`  GAP${i}: ${MODE_NAMES[s.mode]}  B:${s.brightness.toFixed(1)}  C:${s.contrast.toFixed(1)}`)
+  ];
+  lines.forEach((l,i) => ctx.fillText(l, 20, 35+i*22));
+  ctx.restore();
+}
+
+function drawError(ctx) {
+  ctx.save();
+  ctx.font = "16px 'Courier New'";
+  ctx.fillStyle = "#ff2244";
+  ctx.shadowColor = "rgba(255,34,68,0.5)";
+  ctx.shadowBlur = 6;
+  ctx.textAlign = "center";
+  ctx.fillText("CRITICAL ERROR: WEBCAM HARDWARE PIPELINE OFFLINE", CW/2, CH/2-25);
+  ctx.fillStyle = "#00ff88";
+  ctx.font = "13px 'Courier New'";
+  ctx.fillText(`SYSTEM: ${cameraError.toUpperCase()}`, CW/2, CH/2+15);
+  ctx.fillText("FALLBACK TO MOUSE/POINTER EMULATION", CW/2, CH/2+45);
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════════════
+//  LOOP
+// ════════════════════════════════════════════════════
+function loop() {
+  drawFrame();
+  processHands();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+window.addEventListener('load', () => {
+  loadingEl.textContent = typeof Hands !== 'undefined'
+    ? "PIPELINE: STANDBY"
+    : "PIPELINE: LIB_LOAD_ERROR";
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pinch Puzzle — Two-Hand Gesture Puzzle</title>
+<style>
+  :root{
+    --bg:#0b0b0d; --panel:#141417; --accent:#f5c542; --accent2:#4ad9c9;
+    --text:#f2f2f2; --muted:#9a9aa2;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Segoe UI',system-ui,sans-serif; overflow:hidden;
+  }
+  #app{
+    position:relative; width:100vw; height:100vh;
+    display:flex; align-items:center; justify-content:center;
+  }
+  #stage{
+    position:relative; width:min(96vw, 960px); aspect-ratio:4/3;
+    border-radius:14px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.6);
+    background:#000;
+  }
+  video{
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    object-fit:cover; transform:scaleX(-1);
+  }
+  canvas{
+    position:absolute; top:0; left:0; width:100%; height:100%;
+  }
+  #hud{
+    position:absolute; top:14px; left:14px; right:14px;
+    display:flex; justify-content:space-between; align-items:flex-start;
+    pointer-events:none; z-index:10;
+  }
+  .badge{
+    background:rgba(20,20,23,.75); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.08);
+    padding:8px 14px; border-radius:10px; font-size:12px;
+    letter-spacing:.5px; text-transform:uppercase; color:var(--muted);
+  }
+  .badge b{color:var(--accent); font-weight:700}
+  #status{
+    position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+    background:rgba(20,20,23,.85); padding:10px 20px; border-radius:999px;
+    font-size:13px; color:var(--text); border:1px solid rgba(255,255,255,.08);
+    z-index:10; max-width:90%; text-align:center;
+  }
+  #controls{
+    position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    display:flex; gap:8px; z-index:10;
+  }
+  button{
+    background:var(--panel); color:var(--text); border:1px solid rgba(255,255,255,.12);
+    padding:8px 14px; border-radius:8px; cursor:pointer; font-size:12px;
+  }
+  button:hover{border-color:var(--accent)}
+  #win{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    background:rgba(0,0,0,.75); z-index:20; flex-direction:column; gap:10px;
+  }
+  #win h2{color:var(--accent); font-size:32px; margin:0}
+  #startOverlay{
+    position:absolute; inset:0; display:flex; flex-direction:column; gap:14px;
+    align-items:center; justify-content:center; background:rgba(0,0,0,.85); z-index:30;
+    text-align:center; padding:20px;
+  }
+  #startOverlay p{color:var(--muted); max-width:420px; font-size:13px; line-height:1.5}
+  #credit{
+    position:absolute; bottom:12px; right:14px; z-index:10;
+    background:rgba(20,20,23,.7); backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.08);
+    padding:6px 12px; border-radius:8px;
+    font-size:11px; line-height:1.5; text-align:right; color:var(--muted);
+    pointer-events:none;
+  }
+  #credit .name{color:var(--text); font-weight:600}
+  #credit a{color:var(--accent2); text-decoration:none; pointer-events:auto}
+  #credit a:hover{text-decoration:underline}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <video id="video" playsinline muted></video>
+    <canvas id="canvas"></canvas>
+
+    <div id="credit">
+      <div class="name">Shivam Vijay Bharre</div>
+      <div><a href="https://www.instagram.com/shivam__bharre/" target="_blank" rel="noopener noreferrer">@shivam__bharre</a></div>
+    </div>
+
+    <div id="hud">
+      <div class="badge" id="phaseBadge">Phase: <b>Waiting</b></div>
+      <div class="badge" id="piecesBadge">Pieces: <b>0 / 9</b></div>
+    </div>
+
+    <div id="controls">
+      <button id="resetBtn">Reset Selection</button>
+      <button id="reshuffleBtn">Reshuffle</button>
+    </div>
+
+    <div id="status">Initializing camera…</div>
+
+    <div id="win">
+      <h2>🎉 Solved!</h2>
+      <button id="playAgainBtn">Play Again</button>
+    </div>
+
+    <div id="startOverlay">
+      <h2 style="margin:0;color:var(--accent)">Pinch Puzzle</h2>
+      <p>
+        Pinch (thumb + index) with <b>both hands</b> at two opposite corners to draw a capture box,
+        then hold steady for a second to lock it in. The region becomes a 3×3 puzzle.
+        Pinch a tile with either hand and drag it to its correct slot.
+      </p>
+      <button id="startBtn" style="padding:12px 24px;font-size:14px;background:var(--accent);color:#111;border:none;font-weight:700">
+        Start Camera
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"
+  onerror="document.getElementById('status').textContent='Could not load the hand-tracking library (cdn.jsdelivr.net). Check your internet connection or firewall/ad-blocker settings, then reload.'; document.getElementById('startBtn').disabled=true;"
+></script>
+
+<script>
+/* ---------------------------------------------------------
+   PINCH PUZZLE
+   Phase 1: SELECT — two-hand pinch defines a bounding box
+   Phase 2: LOCKED — box captured, sliced into 3x3, shuffled
+   Phase 3: SOLVE — pinch-drag single tiles to correct slot
+--------------------------------------------------------- */
+
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const statusEl = document.getElementById('status');
+const phaseBadge = document.getElementById('phaseBadge');
+const piecesBadge = document.getElementById('piecesBadge');
+const winOverlay = document.getElementById('win');
+const startOverlay = document.getElementById('startOverlay');
+
+let W = 640, H = 480;
+
+let phase = 'select'; // 'select' | 'locking' | 'solve' | 'done'
+let hands = []; // per-frame landmark sets (0..2 hands), normalized coords
+
+// --- Selection state ---
+let corner1 = null; // {x,y} in canvas pixels, from hand A pinch
+let corner2 = null; // from hand B pinch
+let lockTimer = 0;
+const LOCK_HOLD_FRAMES = 24; // ~0.8-1s at 30fps stability required
+let stableBox = null;
+
+// --- Puzzle state ---
+const GRID = 3;
+let capturedTiles = []; // {img: ImageBitmap/Canvas, correctRow, correctCol}
+let pieces = []; // current draggable pieces: {id, x,y,w,h, correctSlot, currentSlot, dragging}
+let slots = []; // target slot rects
+let boxRect = null; // {x,y,w,h} in canvas space of the captured area (also where puzzle renders)
+let placedCount = 0;
+
+// --- Pinch/drag state (dual hand support) ---
+const PINCH_GRAB_THRESHOLD = 0.055;   // must pinch this close to START picking up a piece
+const PINCH_HOLD_THRESHOLD = 0.095;   // once held, fingers can drift looser before it counts as "released"
+const GRAB_PADDING = 0.35;            // grab hit-box is enlarged this much (as a fraction of tile size) so aim doesn't need to be pixel-perfect
+let dragState = {}; // handIndex -> {pieceId, offsetX, offsetY}
+
+// Standard 21-point MediaPipe hand skeleton connections (thumb, 4 fingers, palm)
+const HAND_CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [5,9],[9,10],[10,11],[11,12],
+  [9,13],[13,14],[14,15],[15,16],
+  [13,17],[17,18],[18,19],[19,20],
+  [0,17]
+];
+const HAND_COLORS = ['#f5c542', '#4ad9c9'];
+
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function setStatus(msg) { statusEl.textContent = msg; }
+function setPhaseLabel(text) { phaseBadge.innerHTML = `Phase: <b>${text}</b>`; }
+function setPiecesLabel(n) { piecesBadge.innerHTML = `Pieces: <b>${n} / 9</b>`; }
+
+// ---------- Catch-all so failures are visible on-screen, not just in DevTools ----------
+window.addEventListener('error', (e) => {
+  console.error('[PinchPuzzle] uncaught error', e.error || e.message);
+  setStatus('Error: ' + (e.message || 'something went wrong') + ' — open DevTools (F12) console for details.');
+});
+
+// ---------- MediaPipe Hands setup ----------
+let handsModel = null;
+let cameraStarted = false;
+
+function initHandsModel() {
+  if (typeof Hands === 'undefined') {
+    setStatus('Failed to load the hand-tracking library from jsdelivr. Check your internet connection, or that nothing (firewall/ad-blocker/antivirus) is blocking cdn.jsdelivr.net, then reload the page.');
+    document.getElementById('startBtn').disabled = true;
+    return false;
+  }
+  handsModel = new Hands({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  });
+  handsModel.setOptions({
+    maxNumHands: 2,
+    modelComplexity: 1,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.6
+  });
+  handsModel.onResults(onResults);
+  return true;
+}
+
+document.getElementById('startBtn').addEventListener('click', async () => {
+  setStatus('Requesting camera permission…');
+  console.log('[PinchPuzzle] start button clicked');
+
+  if (!handsModel && !initHandsModel()) return;
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    setStatus('This browser/context does not support camera access (getUserMedia missing). Try opening this file directly in Chrome/Edge over https or localhost.');
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+    console.log('[PinchPuzzle] got camera stream');
+    video.srcObject = stream;
+
+    await new Promise((resolve) => {
+      video.onloadedmetadata = () => resolve();
+    });
+    await video.play();
+    console.log('[PinchPuzzle] video playing', video.videoWidth, video.videoHeight);
+
+    W = canvas.width = video.videoWidth || 640;
+    H = canvas.height = video.videoHeight || 480;
+
+    startOverlay.style.display = 'none';
+    cameraStarted = true;
+    setStatus('Pinch with both hands to select a region.');
+    setPhaseLabel('Select');
+
+    runDetectionLoop();
+  } catch (err) {
+    console.error('[PinchPuzzle] camera error', err);
+    let msg = err.message || String(err);
+    if (err.name === 'NotAllowedError') msg = 'Camera permission was denied. Click the camera icon in the address bar and allow access, then reload.';
+    if (err.name === 'NotFoundError') msg = 'No camera was found on this device.';
+    if (err.name === 'NotReadableError') msg = 'Camera is already in use by another app/tab.';
+    setStatus('Camera access failed: ' + msg);
+  }
+});
+
+// Manual detection loop — avoids conflicts with MediaPipe's own Camera utility
+// which internally calls getUserMedia again and can hang if a stream is already attached.
+let rafId = null;
+async function runDetectionLoop() {
+  if (!cameraStarted) return;
+  if (video.readyState >= 2) {
+    try {
+      await handsModel.send({ image: video });
+    } catch (e) {
+      console.error('[PinchPuzzle] hands.send error', e);
+    }
+  }
+  rafId = requestAnimationFrame(runDetectionLoop);
+}
+
+document.getElementById('resetBtn').addEventListener('click', resetSelection);
+document.getElementById('reshuffleBtn').addEventListener('click', () => {
+  if (phase === 'solve' || phase === 'done') shufflePieces();
+});
+document.getElementById('playAgainBtn').addEventListener('click', () => {
+  winOverlay.style.display = 'none';
+  resetSelection();
+});
+
+function resetSelection() {
+  phase = 'select';
+  corner1 = null; corner2 = null; stableBox = null; lockTimer = 0;
+  capturedTiles = []; pieces = []; slots = []; boxRect = null; placedCount = 0;
+  setPhaseLabel('Select');
+  setPiecesLabel(0);
+  setStatus('Pinch with both hands to select a region.');
+}
+
+// ---------- Main per-frame callback ----------
+function onResults(results) {
+  if (!cameraStarted) return;
+  ctx.save();
+  ctx.clearRect(0, 0, W, H);
+
+  // Mirror the drawing to match the mirrored video feed
+  ctx.translate(W, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(results.image, 0, 0, W, H);
+  ctx.restore();
+
+  hands = results.multiHandLandmarks || [];
+
+  // Convert normalized landmarks to canvas pixel coords (accounting for mirror)
+  const handsPx = hands.map(lm => lm.map(p => ({ x: (1 - p.x) * W, y: p.y * H })));
+  const handsNorm = hands; // keep normalized for pinch-distance calc (scale-consistent)
+
+  if (phase === 'select' || phase === 'locking') {
+    handleSelectPhase(handsPx, handsNorm);
+  } else if (phase === 'solve') {
+    handleSolvePhase(handsPx, handsNorm);
+    drawPuzzle();
+    checkWin();
+  } else if (phase === 'done') {
+    drawPuzzle();
+  }
+
+  drawHandOverlay(handsPx, handsNorm);
+}
+
+function isPinching(landmarks, threshold = PINCH_GRAB_THRESHOLD) {
+  const thumb = landmarks[4];
+  const index = landmarks[8];
+  return dist(thumb, index) < threshold;
+}
+
+function pinchMidpoint(landmarksPx) {
+  const thumb = landmarksPx[4];
+  const index = landmarksPx[8];
+  return { x: (thumb.x + index.x) / 2, y: (thumb.y + index.y) / 2 };
+}
+
+// ---------- Phase 1: Selection ----------
+function handleSelectPhase(handsPx, handsNorm) {
+  let pts = [];
+  for (let i = 0; i < handsPx.length; i++) {
+    if (isPinching(handsNorm[i])) {
+      pts.push(pinchMidpoint(handsPx[i]));
+    }
+  }
+
+  if (pts.length >= 2) {
+    corner1 = pts[0];
+    corner2 = pts[1];
+    phase = 'locking';
+    lockTimer++;
+    setPhaseLabel('Locking…');
+    setStatus(`Hold steady… ${Math.ceil((LOCK_HOLD_FRAMES - lockTimer) / 24 * 10) / 10}s`);
+
+    // draw current box preview
+    const x = Math.min(corner1.x, corner2.x);
+    const y = Math.min(corner1.y, corner2.y);
+    const w = Math.abs(corner2.x - corner1.x);
+    const h = Math.abs(corner2.y - corner1.y);
+    ctx.strokeStyle = '#f5c542';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x, y, w, h);
+
+    if (lockTimer >= LOCK_HOLD_FRAMES && w > 60 && h > 60) {
+      stableBox = { x, y, w, h };
+      captureAndSlice(stableBox);
+    }
+  } else if (pts.length === 1) {
+    // one hand pinching: show single marker, reset lock progress
+    lockTimer = Math.max(0, lockTimer - 2);
+    if (lockTimer === 0) { phase = 'select'; setPhaseLabel('Select'); setStatus('Pinch with both hands to select a region.'); }
+    ctx.fillStyle = '#4ad9c9';
+    ctx.beginPath();
+    ctx.arc(pts[0].x, pts[0].y, 8, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    lockTimer = Math.max(0, lockTimer - 3);
+    if (lockTimer === 0) { phase = 'select'; setPhaseLabel('Select'); setStatus('Pinch with both hands to select a region.'); }
+  }
+}
+
+function captureAndSlice(box) {
+  phase = 'capturing';
+  setPhaseLabel('Slicing');
+  setStatus('Capturing region and building puzzle…');
+
+  // Grab the current frame region into an offscreen canvas
+  const off = document.createElement('canvas');
+  off.width = box.w; off.height = box.h;
+  const offCtx = off.getContext('2d');
+
+  // Snapshot from the visible (already mirrored+drawn) main canvas
+  offCtx.drawImage(canvas, box.x, box.y, box.w, box.h, 0, 0, box.w, box.h);
+
+  const tileW = box.w / GRID;
+  const tileH = box.h / GRID;
+  capturedTiles = [];
+
+  for (let r = 0; r < GRID; r++) {
+    for (let c = 0; c < GRID; c++) {
+      const tileCanvas = document.createElement('canvas');
+      tileCanvas.width = tileW; tileCanvas.height = tileH;
+      const tCtx = tileCanvas.getContext('2d');
+      tCtx.drawImage(off, c * tileW, r * tileH, tileW, tileH, 0, 0, tileW, tileH);
+      capturedTiles.push({ canvas: tileCanvas, correctRow: r, correctCol: c });
+    }
+  }
+
+  boxRect = box;
+  buildSlotsAndPieces();
+  shufflePieces();
+
+  phase = 'solve';
+  setPhaseLabel('Solve');
+  setStatus('Pinch a tile and drag it to the correct slot.');
+}
+
+// ---------- Phase 2: Build puzzle ----------
+function buildSlotsAndPieces() {
+  const tileW = boxRect.w / GRID;
+  const tileH = boxRect.h / GRID;
+  slots = [];
+  for (let r = 0; r < GRID; r++) {
+    for (let c = 0; c < GRID; c++) {
+      slots.push({
+        row: r, col: c,
+        x: boxRect.x + c * tileW,
+        y: boxRect.y + r * tileH,
+        w: tileW, h: tileH
+      });
+    }
+  }
+
+  pieces = capturedTiles.map((tile, idx) => ({
+    id: idx,
+    canvas: tile.canvas,
+    correctRow: tile.correctRow,
+    correctCol: tile.correctCol,
+    w: tileW, h: tileH,
+    x: 0, y: 0,           // current position, set by shuffle
+    homeX: 0, homeY: 0,   // fixed unique "resting" spot — failed drops always return here
+    placed: false,
+    dragging: false,
+    nearTarget: false
+  }));
+}
+
+function shufflePieces() {
+  placedCount = 0;
+  setPiecesLabel(0);
+  winOverlay.style.display = 'none';
+  if (phase === 'done') { phase = 'solve'; setPhaseLabel('Solve'); }
+
+  // Shuffle slot assignment (solvable by construction: just a random permutation is fine for sliding-free puzzle)
+  const slotOrder = [...Array(9).keys()];
+  for (let i = slotOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [slotOrder[i], slotOrder[j]] = [slotOrder[j], slotOrder[i]];
+  }
+
+  pieces.forEach((piece, idx) => {
+    const slot = slots[slotOrder[idx]];
+    piece.x = slot.x;
+    piece.y = slot.y;
+    piece.homeX = slot.x;
+    piece.homeY = slot.y;
+    piece.placed = false;
+    piece.nearTarget = false;
+  });
+}
+
+// ---------- Phase 3: Solve interactions ----------
+function trySnap(piece, threshold) {
+  const targetSlot = slots.find(s => s.row === piece.correctRow && s.col === piece.correctCol);
+  const centerX = piece.x + piece.w / 2;
+  const centerY = piece.y + piece.h / 2;
+  const targetCenterX = targetSlot.x + targetSlot.w / 2;
+  const targetCenterY = targetSlot.y + targetSlot.h / 2;
+  const snapDist = Math.hypot(centerX - targetCenterX, centerY - targetCenterY);
+
+  if (snapDist < threshold) {
+    piece.x = targetSlot.x;
+    piece.y = targetSlot.y;
+    piece.placed = true;
+    piece.nearTarget = false;
+    placedCount++;
+    setPiecesLabel(placedCount);
+    return true;
+  }
+  return false;
+}
+
+function handleSolvePhase(handsPx, handsNorm) {
+  const activeHandIndices = new Set();
+
+  for (let i = 0; i < handsPx.length; i++) {
+    const alreadyDragging = !!dragState[i];
+    // once a piece is held, allow fingers to drift looser before treating it as "released" —
+    // this is what was causing pieces to drop mid-drag from ordinary tracking jitter
+    const pinching = isPinching(handsNorm[i], alreadyDragging ? PINCH_HOLD_THRESHOLD : PINCH_GRAB_THRESHOLD);
+    const mid = pinchMidpoint(handsPx[i]);
+    activeHandIndices.add(i);
+
+    if (pinching) {
+      if (!dragState[i]) {
+        // start drag: find topmost unplaced piece under the pinch point
+        // (hit box is padded outward so you don't need pixel-perfect aim to grab it)
+        for (let p = pieces.length - 1; p >= 0; p--) {
+          const piece = pieces[p];
+          if (piece.placed) continue;
+          const padX = piece.w * GRAB_PADDING, padY = piece.h * GRAB_PADDING;
+          if (mid.x >= piece.x - padX && mid.x <= piece.x + piece.w + padX &&
+              mid.y >= piece.y - padY && mid.y <= piece.y + piece.h + padY) {
+            dragState[i] = {
+              pieceId: piece.id,
+              offsetX: mid.x - piece.x,
+              offsetY: mid.y - piece.y
+            };
+            break;
+          }
+        }
+      } else {
+        // continue drag
+        const piece = pieces.find(p => p.id === dragState[i].pieceId);
+        if (piece && !piece.placed) {
+          piece.x = mid.x - dragState[i].offsetX;
+          piece.y = mid.y - dragState[i].offsetY;
+
+          // keep the piece fully on-canvas even if the hand drifts to the frame edge
+          piece.x = Math.max(0, Math.min(W - piece.w, piece.x));
+          piece.y = Math.max(0, Math.min(H - piece.h, piece.y));
+
+          // "magnetic" glow radius — wider than the actual snap radius, just a visual cue
+          const targetSlot = slots.find(s => s.row === piece.correctRow && s.col === piece.correctCol);
+          const cx = piece.x + piece.w / 2, cy = piece.y + piece.h / 2;
+          const tcx = targetSlot.x + targetSlot.w / 2, tcy = targetSlot.y + targetSlot.h / 2;
+          piece.nearTarget = Math.hypot(cx - tcx, cy - tcy) < Math.min(piece.w, piece.h) * 0.45;
+
+          // live magnetic snap — only locks in once genuinely close, so placement still takes real care
+          if (trySnap(piece, Math.min(piece.w, piece.h) * 0.22)) {
+            delete dragState[i];
+          }
+        }
+      }
+    } else {
+      if (dragState[i]) {
+        // release: modest final snap check, otherwise the piece returns to its fixed home spot
+        // (never stays wherever it was dropped — that's what caused overlapping / lost pieces)
+        const piece = pieces.find(p => p.id === dragState[i].pieceId);
+        if (piece && !piece.placed) {
+          if (!trySnap(piece, Math.min(piece.w, piece.h) * 0.3)) {
+            piece.x = piece.homeX;
+            piece.y = piece.homeY;
+            piece.nearTarget = false;
+          }
+        }
+        delete dragState[i];
+      }
+    }
+  }
+
+  // Clean up drag state for hands no longer detected (also return their piece home)
+  Object.keys(dragState).forEach(k => {
+    if (!activeHandIndices.has(Number(k))) {
+      const piece = pieces.find(p => p.id === dragState[k].pieceId);
+      if (piece && !piece.placed) {
+        piece.x = piece.homeX;
+        piece.y = piece.homeY;
+        piece.nearTarget = false;
+      }
+      delete dragState[k];
+    }
+  });
+}
+
+function drawPuzzle() {
+  // draw slot outlines
+  ctx.strokeStyle = 'rgba(245,197,66,.4)';
+  ctx.lineWidth = 1.5;
+  slots.forEach(s => ctx.strokeRect(s.x, s.y, s.w, s.h));
+
+  // glow the target slot of whichever piece is currently being dragged near it
+  pieces.forEach(piece => {
+    if (piece.nearTarget && !piece.placed) {
+      const targetSlot = slots.find(s => s.row === piece.correctRow && s.col === piece.correctCol);
+      ctx.save();
+      ctx.shadowColor = '#4ad9c9';
+      ctx.shadowBlur = 16;
+      ctx.strokeStyle = '#4ad9c9';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(targetSlot.x + 1.5, targetSlot.y + 1.5, targetSlot.w - 3, targetSlot.h - 3);
+      ctx.restore();
+    }
+  });
+
+  // draw unplaced pieces first, placed pieces on top (so unplaced can be grabbed easily, placed look settled)
+  const unplaced = pieces.filter(p => !p.placed);
+  const placed = pieces.filter(p => p.placed);
+
+  [...unplaced, ...placed].forEach(piece => {
+    ctx.drawImage(piece.canvas, piece.x, piece.y, piece.w, piece.h);
+    ctx.strokeStyle = piece.placed ? '#4ad9c9' : 'rgba(255,255,255,.5)';
+    ctx.lineWidth = piece.placed ? 2 : 1;
+    ctx.strokeRect(piece.x, piece.y, piece.w, piece.h);
+  });
+}
+
+function checkWin() {
+  if (placedCount === 9 && phase === 'solve') {
+    phase = 'done';
+    setPhaseLabel('Solved!');
+    setStatus('🎉 Puzzle complete!');
+    winOverlay.style.display = 'flex';
+  }
+}
+
+// ---------- Hand skeleton visualization ----------
+function drawHandOverlay(handsPx, handsNorm) {
+  for (let i = 0; i < handsPx.length; i++) {
+    const color = HAND_COLORS[i % HAND_COLORS.length];
+    const lm = handsPx[i];
+
+    // skeleton connections
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 2;
+    HAND_CONNECTIONS.forEach(([a, b]) => {
+      ctx.beginPath();
+      ctx.moveTo(lm[a].x, lm[a].y);
+      ctx.lineTo(lm[b].x, lm[b].y);
+      ctx.stroke();
+    });
+
+    // landmark joints
+    ctx.globalAlpha = 1;
+    lm.forEach((p, idx) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, (idx === 4 || idx === 8) ? 4.5 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+    ctx.restore();
+
+    // pinch cursor at thumb-index midpoint — brightens solid white when actively pinching
+    const pinching = isPinching(handsNorm[i]);
+    const mid = pinchMidpoint(lm);
+    ctx.beginPath();
+    ctx.arc(mid.x, mid.y, pinching ? 12 : 7, 0, Math.PI * 2);
+    ctx.fillStyle = pinching ? '#ffffff' : 'rgba(255,255,255,.55)';
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+}
+</script>
+</body>
+</html>

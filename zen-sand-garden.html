@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zen Sand Garden — Gesture Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Zen+Kaku+Gothic+New:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sand: #e8dcc7;
+    --sand-dark: #c9b89d;
+    --groove: #b8a688;
+    --wood: #8b6f47;
+    --wood-dark: #5c4a30;
+    --ink: #4a3f30;
+    --ink-soft: rgba(74,63,48,0.6);
+    --paper: #f4ecdd;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html,body{
+    width:100%; height:100%; overflow:hidden;
+    background:#1c1712;
+    font-family:'Zen Kaku Gothic New', sans-serif;
+  }
+  #stage{
+    position:fixed; inset:0;
+    display:flex; align-items:center; justify-content:center;
+  }
+  canvas#garden{
+    width:100vw; height:100vh;
+    display:block;
+    cursor:none;
+  }
+  #video{
+    position:fixed;
+    bottom:18px; right:18px;
+    width:180px; height:135px;
+    object-fit:cover;
+    opacity:0.1;
+    border-radius:6px;
+    transform:scaleX(-1);
+    z-index:5;
+    pointer-events:none;
+  }
+  #title{
+    position:fixed;
+    top:28px; left:32px;
+    z-index:10;
+    color:var(--ink);
+    pointer-events:none;
+    user-select:none;
+  }
+  #title h1{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600;
+    font-size:28px;
+    letter-spacing:0.06em;
+    color:var(--ink);
+    text-shadow:0 1px 0 rgba(255,255,255,0.25);
+  }
+  #title .sub{
+    font-family:'Cormorant Garamond', serif;
+    font-style:italic;
+    font-size:14px;
+    letter-spacing:0.08em;
+    color:var(--ink-soft);
+    margin-top:2px;
+  }
+  #hud{
+    position:fixed;
+    bottom:24px; left:32px;
+    z-index:10;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    color:var(--ink);
+    pointer-events:none;
+    user-select:none;
+  }
+  #hud .dot{
+    width:9px; height:9px;
+    border-radius:50%;
+    background:var(--ink-soft);
+    transition:background 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
+  }
+  #hud.state-rake .dot{ background:var(--wood-dark); box-shadow:0 0 8px var(--wood); transform:scale(1.2); }
+  #hud.state-smooth .dot{ background:#7c95a8; box-shadow:0 0 8px rgba(124,149,168,0.7); transform:scale(1.2); }
+  #hud.state-hover .dot{ background:var(--ink-soft); }
+  #hud .label{
+    font-family:'Cormorant Garamond', serif;
+    font-size:15px;
+    letter-spacing:0.05em;
+    color:var(--ink);
+    min-width:150px;
+  }
+  #reset{
+    position:fixed;
+    bottom:24px; right:24px;
+    z-index:10;
+    background:transparent;
+    border:1px solid var(--ink-soft);
+    color:var(--ink);
+    font-family:'Cormorant Garamond', serif;
+    font-size:14px;
+    letter-spacing:0.08em;
+    padding:8px 18px;
+    border-radius:20px;
+    cursor:pointer;
+    transition:all 0.2s ease;
+  }
+  #reset:hover{
+    background:var(--ink);
+    color:var(--paper);
+    border-color:var(--ink);
+  }
+  #overlay{
+    position:fixed; inset:0;
+    background:#1c1712;
+    color:var(--paper);
+    z-index:100;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    text-align:center;
+    transition:opacity 0.6s ease;
+  }
+  #overlay h2{
+    font-family:'Cormorant Garamond', serif;
+    font-weight:600;
+    font-size:32px;
+    letter-spacing:0.08em;
+  }
+  #overlay p{
+    font-family:'Cormorant Garamond', serif;
+    font-size:16px;
+    color:rgba(244,236,221,0.65);
+    max-width:420px;
+    line-height:1.6;
+  }
+  #overlay .spinner{
+    width:28px; height:28px;
+    border-radius:50%;
+    border:2px solid rgba(244,236,221,0.2);
+    border-top-color:var(--paper);
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  #overlay.hidden{ opacity:0; pointer-events:none; }
+  #instructions{
+    position:fixed;
+    top:50%; right:32px;
+    transform:translateY(-50%);
+    z-index:10;
+    color:var(--ink);
+    text-align:right;
+    pointer-events:none;
+    user-select:none;
+    opacity:0.85;
+    transition:opacity 1.2s ease;
+  }
+  #instructions div{
+    font-family:'Cormorant Garamond', serif;
+    font-size:14px;
+    letter-spacing:0.04em;
+    margin-bottom:10px;
+    color:var(--ink-soft);
+  }
+  #instructions .k{
+    font-weight:600;
+    color:var(--ink);
+  }
+  #instructions.hidden{ opacity:0; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="garden"></canvas>
+</div>
+
+<video id="video" autoplay playsinline muted></video>
+
+<div id="title">
+  <h1>枯山水 · Zen Sand Garden</h1>
+  <div class="sub">gesture-raked, hand-smoothed</div>
+</div>
+
+<div id="hud" class="state-hover">
+  <div class="dot"></div>
+  <div class="label" id="hud-label">finding your hand…</div>
+</div>
+
+<div id="instructions">
+  <div><span class="k">Pinch</span> thumb + index — rake the sand</div>
+  <div><span class="k">Open palm</span> — smooth it away</div>
+  <div><span class="k">Relax</span> your hand — just hover</div>
+</div>
+
+<button id="reset">reset garden</button>
+
+<div id="overlay">
+  <div class="spinner"></div>
+  <h2>Preparing the garden</h2>
+  <p id="overlay-text">Loading the hand tracking model and asking for camera access…</p>
+</div>
+
+<script type="module">
+import {
+  HandLandmarker,
+  FilesetResolver
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
+
+// ---------- Canvas setup ----------
+const displayCanvas = document.getElementById('garden');
+const dctx = displayCanvas.getContext('2d', { willReadFrequently: false });
+
+const video = document.getElementById('video');
+const overlay = document.getElementById('overlay');
+const overlayText = document.getElementById('overlay-text');
+const instructions = document.getElementById('instructions');
+const hud = document.getElementById('hud');
+const hudLabel = document.getElementById('hud-label');
+const resetBtn = document.getElementById('reset');
+
+const SAND = '#e8dcc7';
+const GROOVE = '#c9b89d';
+
+let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+// Two offscreen layers:
+// baseTexture -> the pristine flat sand + noise, never changes after generation
+// sandLayer   -> the persistent, evolving garden state (base + rake grooves, minus smoothed areas)
+const baseTexture = document.createElement('canvas');
+const btx = baseTexture.getContext('2d', { willReadFrequently: true });
+
+const sandLayer = document.createElement('canvas');
+const stx = sandLayer.getContext('2d');
+
+function generateBaseTexture(canvas, ctx) {
+  ctx.fillStyle = SAND;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // subtle static grain overlay
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imgData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const n = (Math.random() - 0.5) * 14; // small luminance jitter
+    data[i]     = Math.min(255, Math.max(0, data[i] + n));
+    data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + n));
+    data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + n * 0.85));
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // faint concentric ripple texture, like a rake resting in the corner
+  ctx.save();
+  ctx.globalAlpha = 0.05;
+  ctx.strokeStyle = '#8b6f47';
+  ctx.lineWidth = 1;
+  for (let r = 40; r < Math.max(canvas.width, canvas.height); r += 26) {
+    ctx.beginPath();
+    ctx.arc(canvas.width * 0.85, canvas.height * 0.15, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function resizeCanvases() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+
+  displayCanvas.width = W * DPR;
+  displayCanvas.height = H * DPR;
+  displayCanvas.style.width = W + 'px';
+  displayCanvas.style.height = H + 'px';
+  dctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+
+  baseTexture.width = W * DPR;
+  baseTexture.height = H * DPR;
+  sandLayer.width = W * DPR;
+  sandLayer.height = H * DPR;
+
+  generateBaseTexture(baseTexture, btx);
+
+  // start (or restart) the sand layer as a copy of the fresh base texture
+  stx.drawImage(baseTexture, 0, 0);
+}
+
+window.addEventListener('resize', () => {
+  // simple approach: regenerate on resize (keeps things robust; rare event)
+  resizeCanvases();
+});
+
+resetBtn.addEventListener('click', () => {
+  stx.clearRect(0, 0, sandLayer.width, sandLayer.height);
+  stx.drawImage(baseTexture, 0, 0);
+});
+
+resizeCanvases();
+
+// ---------- MediaPipe setup ----------
+let handLandmarker = null;
+let lastVideoTime = -1;
+let running = false;
+
+async function setupHandLandmarker() {
+  const filesetResolver = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+  );
+  handLandmarker = await HandLandmarker.createFromOptions(filesetResolver, {
+    baseOptions: {
+      modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      delegate: "GPU"
+    },
+    runningMode: "VIDEO",
+    numHands: 1
+  });
+}
+
+async function setupCamera() {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { width: 640, height: 480, facingMode: 'user' },
+    audio: false
+  });
+  video.srcObject = stream;
+  return new Promise((resolve) => {
+    video.onloadedmetadata = () => {
+      video.play();
+      resolve();
+    };
+  });
+}
+
+async function init() {
+  try {
+    overlayText.textContent = "Loading the hand tracking model…";
+    await setupHandLandmarker();
+    overlayText.textContent = "Asking for camera access…";
+    await setupCamera();
+    overlay.classList.add('hidden');
+    setTimeout(() => instructions.classList.add('hidden'), 6000);
+    running = true;
+    requestAnimationFrame(loop);
+  } catch (err) {
+    console.error(err);
+    overlayText.textContent = "Couldn't start the camera or model: " + err.message + ". Please allow camera access and reload.";
+    const spinner = document.querySelector('#overlay .spinner');
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+// ---------- Gesture helpers ----------
+function dist2D(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// CSS-pixel space (for anything drawn on the DPR-transformed display context)
+function toCanvasXY(landmark) {
+  return {
+    x: (1 - landmark.x) * W,
+    y: landmark.y * H
+  };
+}
+
+// device-pixel space (for anything drawn directly onto the untransformed
+// offscreen sandLayer / baseTexture canvases, which are sized W*DPR x H*DPR)
+function toSandXY(landmark) {
+  return {
+    x: (1 - landmark.x) * W * DPR,
+    y: landmark.y * H * DPR
+  };
+}
+
+// state for continuous rake strokes
+let lastRakePoint = null;   // in canvas space
+let wasPinching = false;
+let lastSmoothPoint = null;
+let hoverPulse = 0;
+
+function classifyGesture(landmarks) {
+  const thumbTip = landmarks[4];
+  const indexTip = landmarks[8];
+  const wrist = landmarks[0];
+
+  const pinchDist = dist2D(thumbTip, indexTip);
+  if (pinchDist < 0.05) {
+    return 'rake';
+  }
+
+  // open palm check: for each finger, tip should be noticeably farther
+  // from the wrist than its own knuckle (MCP) is -> finger extended
+  const fingers = [
+    { tip: landmarks[8],  mcp: landmarks[5] },  // index
+    { tip: landmarks[12], mcp: landmarks[9] },  // middle
+    { tip: landmarks[16], mcp: landmarks[13] }, // ring
+    { tip: landmarks[20], mcp: landmarks[17] }  // pinky
+  ];
+
+  let extendedCount = 0;
+  for (const f of fingers) {
+    const tipDist = dist2D(wrist, f.tip);
+    const mcpDist = dist2D(wrist, f.mcp);
+    if (tipDist > mcpDist * 1.35) extendedCount++;
+  }
+
+  if (extendedCount === 4) {
+    return 'smooth';
+  }
+
+  return 'hover';
+}
+
+// ---------- Drawing ----------
+function drawRakeSegment(from, to) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const len = Math.sqrt(dx * dx + dy * dy);
+  if (len < 0.5) return;
+
+  const nx = -dy / len; // perpendicular unit vector
+  const ny = dx / len;
+
+  const numTines = 4;
+  const spacing = 3.4 * DPR;
+  const baseOffset = -(numTines - 1) * spacing / 2;
+
+  stx.save();
+  stx.lineCap = 'round';
+  stx.lineJoin = 'round';
+  stx.shadowColor = 'rgba(139, 111, 71, 0.35)';
+  stx.shadowBlur = 2.5 * DPR;
+
+  for (let i = 0; i < numTines; i++) {
+    const offset = baseOffset + i * spacing;
+    const jitter = (Math.sin(i * 12.9898 + from.x * 0.01) * 0.4);
+    const ox = nx * (offset + jitter);
+    const oy = ny * (offset + jitter);
+
+    stx.beginPath();
+    stx.moveTo(from.x + ox, from.y + oy);
+    stx.lineTo(to.x + ox, to.y + oy);
+    stx.strokeStyle = GROOVE;
+    stx.globalAlpha = 0.55;
+    stx.lineWidth = 2.2 * DPR;
+    stx.stroke();
+
+    // a thin darker core line inside each groove for depth
+    stx.beginPath();
+    stx.moveTo(from.x + ox, from.y + oy);
+    stx.lineTo(to.x + ox, to.y + oy);
+    stx.strokeStyle = '#a9977a';
+    stx.globalAlpha = 0.35;
+    stx.lineWidth = 0.8 * DPR;
+    stx.stroke();
+  }
+  stx.restore();
+}
+
+function smoothAt(point) {
+  const radius = 46 * DPR;
+  stx.save();
+  stx.beginPath();
+  const grad = stx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.7, 'rgba(255,255,255,0.6)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+
+  // draw the pristine base texture clipped to a soft circular brush,
+  // blended in gently so grooves fade rather than vanish instantly
+  stx.globalCompositeOperation = 'source-over';
+  stx.globalAlpha = 0.22;
+  stx.beginPath();
+  stx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+  stx.clip();
+  stx.drawImage(baseTexture, 0, 0);
+  stx.restore();
+}
+
+function drawHoverIndicator(point, ctxTarget) {
+  hoverPulse += 0.06;
+  const pulse = Math.sin(hoverPulse) * 3;
+  ctxTarget.save();
+  ctxTarget.beginPath();
+  ctxTarget.arc(point.x, point.y, 14 + pulse, 0, Math.PI * 2);
+  ctxTarget.strokeStyle = 'rgba(74, 63, 48, 0.35)';
+  ctxTarget.lineWidth = 1.5;
+  ctxTarget.stroke();
+
+  ctxTarget.beginPath();
+  ctxTarget.arc(point.x, point.y, 2.5, 0, Math.PI * 2);
+  ctxTarget.fillStyle = 'rgba(74, 63, 48, 0.5)';
+  ctxTarget.fill();
+  ctxTarget.restore();
+}
+
+function setHud(state) {
+  hud.classList.remove('state-rake', 'state-smooth', 'state-hover');
+  if (state === 'rake') {
+    hud.classList.add('state-rake');
+    hudLabel.textContent = 'raking the sand';
+  } else if (state === 'smooth') {
+    hud.classList.add('state-smooth');
+    hudLabel.textContent = 'smoothing it away';
+  } else if (state === 'none') {
+    hud.classList.add('state-hover');
+    hudLabel.textContent = 'finding your hand…';
+  } else {
+    hud.classList.add('state-hover');
+    hudLabel.textContent = 'hovering';
+  }
+}
+
+// ---------- Main loop ----------
+function loop() {
+  if (!running) return;
+
+  let nowInMs = performance.now();
+  let handPoint = null;
+  let gesture = 'none';
+
+  if (video.currentTime !== lastVideoTime && handLandmarker) {
+    lastVideoTime = video.currentTime;
+    const result = handLandmarker.detectForVideo(video, nowInMs);
+
+    if (result.landmarks && result.landmarks.length > 0) {
+      const landmarks = result.landmarks[0];
+      gesture = classifyGesture(landmarks);
+
+      if (gesture === 'rake') {
+        // device-pixel coords for drawing onto the persistent sandLayer
+        const thumbTipS = toSandXY(landmarks[4]);
+        const indexTipS = toSandXY(landmarks[8]);
+        const sandPoint = {
+          x: (thumbTipS.x + indexTipS.x) / 2,
+          y: (thumbTipS.y + indexTipS.y) / 2
+        };
+
+        if (wasPinching && lastRakePoint) {
+          drawRakeSegment(lastRakePoint, sandPoint);
+        }
+        lastRakePoint = sandPoint;
+        wasPinching = true;
+        lastSmoothPoint = null;
+
+        // CSS-pixel coords, only needed if we ever show a cursor here
+        handPoint = toCanvasXY(landmarks[8]);
+      } else if (gesture === 'smooth') {
+        const sandPoint = toSandXY(landmarks[9]); // palm center approx, device pixels
+        smoothAt(sandPoint);
+        if (lastSmoothPoint) {
+          // interpolate a few steps between last and current for a continuous swipe
+          const steps = 4;
+          for (let s = 1; s <= steps; s++) {
+            const t = s / steps;
+            smoothAt({
+              x: lastSmoothPoint.x + (sandPoint.x - lastSmoothPoint.x) * t,
+              y: lastSmoothPoint.y + (sandPoint.y - lastSmoothPoint.y) * t
+            });
+          }
+        }
+        lastSmoothPoint = sandPoint;
+        wasPinching = false;
+        lastRakePoint = null;
+
+        handPoint = toCanvasXY(landmarks[9]);
+      } else {
+        handPoint = toCanvasXY(landmarks[9]);
+        wasPinching = false;
+        lastRakePoint = null;
+        lastSmoothPoint = null;
+      }
+
+      setHud(gesture);
+    } else {
+      setHud('none');
+      wasPinching = false;
+      lastRakePoint = null;
+      lastSmoothPoint = null;
+    }
+  }
+
+  // composite: persistent sand layer -> display, then ephemeral hover indicator on top
+  dctx.clearRect(0, 0, W, H);
+  dctx.drawImage(sandLayer, 0, 0, W * DPR, H * DPR, 0, 0, W, H);
+
+  if (handPoint && gesture === 'hover') {
+    drawHoverIndicator(handPoint, dctx);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+init();
+</script>
+</body>
+</html>
