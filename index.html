@@ -1,102 +1,401 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MediaPipe Interactive Projects</title>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #0d1117;
-      color: #f0f6fc;
-      text-align: center;
-      padding: 40px 20px;
-      margin: 0;
-    }
-    h1 { color: #58a6ff; margin-bottom: 10px; }
-    p.subtitle { color: #8b949e; font-size: 1.1rem; margin-bottom: 30px; }
-    .container {
-      display: flex;
-      justify-content: center;
-      gap: 20px;
-      flex-wrap: wrap;
-      max-width: 1000px;
-      margin: 0 auto;
-    }
-    .card {
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 12px;
-      padding: 24px;
-      width: 280px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    }
-    .card h3 { margin-top: 0; color: #f0f6fc; font-size: 1.25rem; }
-    .card p { color: #8b949e; font-size: 0.9rem; flex-grow: 1; }
-    .btn-group { display: flex; gap: 10px; margin-top: 20px; }
-    .btn {
-      display: inline-block;
-      padding: 10px 14px;
-      border-radius: 6px;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 14px;
-      flex: 1;
-      text-align: center;
-    }
-    .btn-live { background-color: #238636; color: #ffffff; }
-    .btn-download { background-color: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
-    .btn:hover { opacity: 0.85; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shivam Bharre — MediaPipe Interactive Filters</title>
+<meta name="description" content="Real-time hand-gesture browser filters built with MediaPipe — Finger Filter, Pinch Puzzle, and Zen Sand Garden, by Shivam Bharre.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#131313;
+    --bg:#ECECE8;
+    --surface:#FFFFFF;
+    --line:#DAD9D4;
+    --muted:#5B5A56;
+    --orange:#FF5A1F;
+    --orange-deep:#E2450A;
+    --display:'Archivo Black', sans-serif;
+    --body:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --mono:'IBM Plex Mono', monospace;
+  }
+  *,*::before,*::after{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--body);
+    -webkit-font-smoothing:antialiased;
+  }
+  img,svg{ display:block; max-width:100%; }
+  a{ color:inherit; }
+  .skip-link{
+    position:absolute; left:-999px; top:0;
+    background:var(--orange); color:#fff; padding:10px 16px;
+    z-index:100; border-radius:0 0 8px 0; font-family:var(--mono); font-size:.85rem;
+  }
+  .skip-link:focus{ left:0; }
+  a:focus-visible, button:focus-visible{
+    outline:2px solid var(--orange); outline-offset:3px; border-radius:4px;
+  }
+
+  /* ---------- Nav ---------- */
+  .nav{
+    position:sticky; top:0; z-index:50;
+    background:rgba(236,236,232,.86);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border-bottom:1px solid var(--line);
+  }
+  .nav__inner{
+    max-width:1180px; margin:0 auto; padding:14px 24px;
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+  }
+  .nav__brand{ display:flex; align-items:center; gap:10px; text-decoration:none; }
+  .nav__brand svg{ opacity:.7; transition:opacity .15s ease; }
+  .nav__brand:hover svg{ opacity:1; }
+  .nav__name{
+    font-family:var(--body); font-weight:600; font-size:.9rem; letter-spacing:.01em;
+    color:var(--muted); transition:color .15s ease;
+  }
+  .nav__brand:hover .nav__name{ color:var(--ink); }
+  .nav__links{ display:flex; gap:28px; list-style:none; margin:0; padding:0; }
+  .nav__links a{
+    font-family:var(--mono); font-size:.8rem; text-transform:uppercase; letter-spacing:.05em;
+    text-decoration:none; color:var(--ink); padding-bottom:3px; border-bottom:1px solid transparent;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  .nav__links a:hover{ border-color:var(--orange); color:var(--orange-deep); }
+  .nav__actions{ display:flex; align-items:center; gap:16px; }
+  .nav__icon{ color:var(--ink); transition:color .15s ease; }
+  .nav__icon:hover{ color:var(--orange); }
+  @media (max-width:720px){
+    .nav__inner{ flex-wrap:wrap; row-gap:12px; }
+    .nav__links{ order:3; width:100%; justify-content:center; }
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    font-family:var(--body); font-weight:600; font-size:.95rem;
+    padding:12px 20px; border-radius:8px; text-decoration:none;
+    border:1px solid transparent; cursor:pointer; transition:background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease;
+  }
+  .btn--primary{ background:var(--orange); color:#fff; border-color:var(--orange); }
+  .btn--primary:hover{ background:var(--orange-deep); border-color:var(--orange-deep); transform:translateY(-1px); }
+  .btn--sm{ padding:10px 14px; font-size:.85rem; border-radius:6px; flex:1; }
+  .btn--live{ background:var(--orange); color:#fff; border-color:var(--orange); }
+  .btn--live:hover{ background:var(--orange-deep); border-color:var(--orange-deep); }
+  .btn--download{ background:transparent; color:var(--muted); border-color:var(--line); }
+  .btn--download:hover{ color:var(--ink); border-color:var(--ink); }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    max-width:1180px; margin:0 auto; padding:72px 24px 40px;
+    display:grid; grid-template-columns:1.1fr .9fr; gap:48px; align-items:center;
+  }
+  .tag-row{ display:flex; flex-wrap:wrap; gap:10px; margin-bottom:22px; }
+  .tag{
+    display:inline-flex; align-items:center; font-family:var(--mono);
+    font-size:.72rem; letter-spacing:.05em; text-transform:uppercase;
+    color:var(--ink); background:var(--surface); border:1px solid var(--line);
+    padding:7px 13px; border-radius:999px;
+  }
+  .tag::before{
+    content:''; width:6px; height:6px; border-radius:50%; background:var(--orange);
+    margin-right:7px; flex-shrink:0;
+  }
+  .hero__title{
+    font-family:var(--display); text-transform:uppercase; line-height:.95;
+    font-size:clamp(2.6rem,6.4vw,5.2rem); letter-spacing:-.01em; margin:0 0 22px;
+  }
+  .hero__title span{ display:block; }
+  .hero__title .accent{ color:var(--orange); }
+  .hero__subtitle{
+    color:var(--muted); font-size:clamp(1rem,1.4vw,1.12rem); line-height:1.6;
+    max-width:46ch; margin:0 0 30px;
+  }
+  .hero__cta{ display:flex; flex-wrap:wrap; gap:14px; }
+
+  .hero__visual{ position:relative; display:flex; flex-direction:column; align-items:center; }
+  .hero__glow{
+    position:absolute; inset:8% 12%; border-radius:50%;
+    background:radial-gradient(circle, rgba(255,90,31,.16), rgba(255,90,31,0) 70%);
+    z-index:0;
+  }
+  .hero__frame{
+    position:relative; z-index:1; width:100%; max-width:340px;
+    background:var(--surface); border:1px solid var(--line); border-radius:20px;
+    padding:28px; overflow:hidden;
+  }
+  .hero__scanline{
+    position:absolute; left:0; right:0; height:2px;
+    background:linear-gradient(90deg, transparent, var(--orange), transparent);
+    top:0; opacity:.85;
+    animation:scan 3.4s ease-in-out infinite;
+  }
+  .lm-tip{ animation:pulse 2.6s ease-in-out infinite; transform-origin:center; }
+  .hero__caption{
+    font-family:var(--mono); font-size:.78rem; color:var(--muted);
+    text-align:center; margin-top:16px; letter-spacing:.02em;
+  }
+  @keyframes scan{ 0%{ top:6%; } 50%{ top:88%; } 100%{ top:6%; } }
+  @keyframes pulse{ 0%,100%{ opacity:1; transform:scale(1); } 50%{ opacity:.55; transform:scale(1.4); } }
+  @media (prefers-reduced-motion:reduce){
+    .hero__scanline, .lm-tip{ animation:none; }
+  }
+  @media (max-width:900px){
+    .hero{ grid-template-columns:1fr; padding-top:48px; }
+    .hero__visual{ order:-1; margin-bottom:8px; }
+    .hero__frame{ max-width:280px; margin:0 auto; }
+  }
+
+  /* ---------- Watermark ---------- */
+  .watermark{
+    font-family:var(--display); text-transform:uppercase; text-align:center;
+    font-size:clamp(2.6rem,12vw,8.4rem); line-height:1; letter-spacing:-.01em;
+    color:transparent; -webkit-text-stroke:1.5px var(--ink);
+    margin:20px 0 10px; user-select:none; padding:0 16px;
+  }
+  .watermark .init{ color:var(--orange); -webkit-text-stroke:0; }
+
+  /* ---------- Filters ---------- */
+  .section{ max-width:1180px; margin:0 auto; padding:64px 24px; }
+  .eyebrow{
+    font-family:var(--mono); font-size:.78rem; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--orange-deep); margin:0 0 12px;
+  }
+  .section__title{
+    font-family:var(--display); text-transform:uppercase; line-height:1.05;
+    font-size:clamp(1.6rem,3.4vw,2.4rem); letter-spacing:-.01em; margin:0 0 40px; max-width:20ch;
+  }
+  .card-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:24px; }
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:28px; display:flex; flex-direction:column;
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .card:hover{ transform:translateY(-4px); box-shadow:0 16px 30px rgba(19,19,19,.08); border-color:var(--orange); }
+  .card__icon{ width:40px; height:40px; margin-bottom:18px; }
+  .card h3{ font-family:var(--body); font-weight:700; font-size:1.15rem; margin:0 0 10px; }
+  .card p{ color:var(--muted); font-size:.92rem; line-height:1.55; flex-grow:1; margin:0 0 22px; }
+  .card__actions{ display:flex; gap:10px; }
+
+  /* ---------- About ---------- */
+  .about{ display:grid; grid-template-columns:1fr; gap:20px; max-width:720px; }
+  .about p{ color:var(--muted); font-size:1.02rem; line-height:1.7; }
+  .about strong{ color:var(--ink); }
+  .about__insta{
+    display:inline-flex; align-items:center; gap:8px; font-weight:600;
+    text-decoration:none; color:var(--ink); border-bottom:1px solid var(--orange); width:fit-content;
+  }
+  .about__insta:hover{ color:var(--orange-deep); }
+
+  /* ---------- Footer ---------- */
+  .site-footer{
+    border-top:1px solid var(--line); padding:26px 24px;
+  }
+  .site-footer__inner{
+    max-width:1180px; margin:0 auto; display:flex; flex-wrap:wrap;
+    justify-content:space-between; gap:12px; align-items:center;
+  }
+  .site-footer p{ margin:0; font-size:.82rem; color:var(--muted); }
+  .site-footer__meta{ font-family:var(--mono); font-size:.75rem; color:var(--muted); }
+  .back-top{ font-family:var(--mono); font-size:.75rem; text-decoration:none; color:var(--muted); }
+  .back-top:hover{ color:var(--orange-deep); }
+</style>
 </head>
 <body>
+<a href="#main-content" class="skip-link">Skip to content</a>
 
-  <h1>🎭 MediaPipe Interactive Collection</h1>
-  <p class="subtitle">Select any filter below to launch it live in your browser or download the source file.</p>
-
-  <div class="container">
-
-    <!-- Card 1: Finger Filter -->
-    <div class="card">
-      <div>
-        <h3>Finger Filter</h3>
-        <p>Interactive tracking filter powered by MediaPipe hand gesture recognition.</p>
-      </div>
-      <div class="btn-group">
-        <a href="finger_filter.html" class="btn btn-live">Try Live</a>
-        <a href="finger_filter.html" download="finger_filter.html" class="btn btn-download">Download</a>
-      </div>
+<header class="nav">
+  <div class="nav__inner">
+    <a href="#top" class="nav__brand" aria-label="Back to top">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="5" r="2" fill="var(--orange)"/>
+        <circle cx="6" cy="18" r="2" fill="var(--ink)"/>
+        <circle cx="18" cy="18" r="2" fill="var(--ink)"/>
+        <path d="M12 7 L6 16 M12 7 L18 16 M6 18 L18 18" stroke="var(--ink)" stroke-width="1.3"/>
+      </svg>
+      <span class="nav__name">Shivam Bharre</span>
+    </a>
+    <ul class="nav__links">
+      <li><a href="#filters">Filters</a></li>
+      <li><a href="#about">About</a></li>
+    </ul>
+    <div class="nav__actions">
+      <a class="nav__icon" href="https://www.instagram.com/shivam__bharre/" target="_blank" rel="noopener noreferrer" aria-label="Shivam Bharre on Instagram">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+          <rect x="3" y="3" width="18" height="18" rx="5"/>
+          <circle cx="12" cy="12" r="4"/>
+          <circle cx="17.3" cy="6.7" r="1"/>
+        </svg>
+      </a>
+      <a href="#filters" class="btn btn--primary btn--sm" style="flex:none;">Try a Filter</a>
     </div>
-
-    <!-- Card 2: Pinch Puzzle Filter -->
-    <div class="card">
-      <div>
-        <h3>Pinch Puzzle Filter</h3>
-        <p>An interactive puzzle experience using pinch gesture controls.</p>
-      </div>
-      <div class="btn-group">
-        <a href="pinch_puzzle filter.html" class="btn btn-live">Try Live</a>
-        <a href="pinch_puzzle filter.html" download="pinch_puzzle_filter.html" class="btn btn-download">Download</a>
-      </div>
-    </div>
-
-    <!-- Card 3: Zen Sand Garden -->
-    <div class="card">
-      <div>
-        <h3>Zen Sand Garden</h3>
-        <p>Relaxing sand simulation interactive experience.</p>
-      </div>
-      <div class="btn-group">
-        <a href="zen-sand-garden.html" class="btn btn-live">Try Live</a>
-        <a href="zen-sand-garden.html" download="zen-sand-garden.html" class="btn btn-download">Download</a>
-      </div>
-    </div>
-
   </div>
+</header>
+
+<main id="main-content">
+
+  <section class="hero" id="top">
+    <div class="hero__copy">
+      <div class="tag-row">
+        <span class="tag">MediaPipe Hands</span>
+        <span class="tag">Real&#8209;Time</span>
+        <span class="tag">Runs In Browser</span>
+      </div>
+      <h1 class="hero__title">
+        <span>Wave.</span>
+        <span>Pinch.</span>
+        <span class="accent">Create.</span>
+      </h1>
+      <p class="hero__subtitle">Three browser experiments built on real-time hand tracking — no installs, no plugins. Just your camera, your hands, and MediaPipe doing the math in between.</p>
+      <div class="hero__cta">
+        <a href="#filters" class="btn btn--primary">Try a Filter</a>
+      </div>
+    </div>
+
+    <div class="hero__visual">
+      <div class="hero__glow" aria-hidden="true"></div>
+      <div class="hero__frame">
+        <div class="hero__scanline" aria-hidden="true"></div>
+        <svg viewBox="0 0 260 300" width="100%" role="img" aria-label="Stylized diagram of a hand with 21 tracked landmark points">
+          <g stroke="var(--ink)" stroke-width="1.4" fill="none" opacity="0.55">
+            <line x1="130" y1="270" x2="95" y2="250"/>
+            <line x1="95" y1="250" x2="70" y2="220"/>
+            <line x1="70" y1="220" x2="55" y2="190"/>
+            <line x1="55" y1="190" x2="45" y2="160"/>
+            <line x1="130" y1="270" x2="105" y2="200"/>
+            <line x1="105" y1="200" x2="100" y2="150"/>
+            <line x1="100" y1="150" x2="97" y2="110"/>
+            <line x1="97" y1="110" x2="95" y2="75"/>
+            <line x1="105" y1="200" x2="135" y2="190"/>
+            <line x1="135" y1="190" x2="135" y2="130"/>
+            <line x1="135" y1="130" x2="135" y2="85"/>
+            <line x1="135" y1="85" x2="135" y2="50"/>
+            <line x1="135" y1="190" x2="165" y2="195"/>
+            <line x1="165" y1="195" x2="168" y2="140"/>
+            <line x1="168" y1="140" x2="170" y2="100"/>
+            <line x1="170" y1="100" x2="172" y2="65"/>
+            <line x1="165" y1="195" x2="195" y2="205"/>
+            <line x1="195" y1="205" x2="200" y2="160"/>
+            <line x1="200" y1="160" x2="203" y2="125"/>
+            <line x1="203" y1="125" x2="206" y2="95"/>
+            <line x1="130" y1="270" x2="195" y2="205"/>
+          </g>
+          <g>
+            <circle cx="130" cy="270" r="5" fill="var(--orange)" class="lm-tip"/>
+            <circle cx="95" cy="250" r="3" fill="var(--ink)"/>
+            <circle cx="70" cy="220" r="3" fill="var(--ink)"/>
+            <circle cx="55" cy="190" r="3" fill="var(--ink)"/>
+            <circle cx="45" cy="160" r="4.5" fill="var(--orange)" class="lm-tip" style="animation-delay:.2s;"/>
+            <circle cx="105" cy="200" r="3" fill="var(--ink)"/>
+            <circle cx="100" cy="150" r="3" fill="var(--ink)"/>
+            <circle cx="97" cy="110" r="3" fill="var(--ink)"/>
+            <circle cx="95" cy="75" r="4.5" fill="var(--orange)" class="lm-tip" style="animation-delay:.4s;"/>
+            <circle cx="135" cy="190" r="3" fill="var(--ink)"/>
+            <circle cx="135" cy="130" r="3" fill="var(--ink)"/>
+            <circle cx="135" cy="85" r="3" fill="var(--ink)"/>
+            <circle cx="135" cy="50" r="4.5" fill="var(--orange)" class="lm-tip" style="animation-delay:.6s;"/>
+            <circle cx="165" cy="195" r="3" fill="var(--ink)"/>
+            <circle cx="168" cy="140" r="3" fill="var(--ink)"/>
+            <circle cx="170" cy="100" r="3" fill="var(--ink)"/>
+            <circle cx="172" cy="65" r="4.5" fill="var(--orange)" class="lm-tip" style="animation-delay:.8s;"/>
+            <circle cx="195" cy="205" r="3" fill="var(--ink)"/>
+            <circle cx="200" cy="160" r="3" fill="var(--ink)"/>
+            <circle cx="203" cy="125" r="3" fill="var(--ink)"/>
+            <circle cx="206" cy="95" r="4.5" fill="var(--orange)" class="lm-tip" style="animation-delay:1s;"/>
+          </g>
+        </svg>
+      </div>
+      <p class="hero__caption">21 landmarks · tracked live</p>
+    </div>
+  </section>
+
+  <h2 class="watermark" aria-hidden="true"><span class="init">S</span>hivam <span class="init">B</span>harre</h2>
+
+  <section class="section" id="filters">
+    <p class="eyebrow">( 3 Browser Experiments )</p>
+    <h2 class="section__title">Pick a filter. Open your camera. Start moving your hands.</h2>
+
+    <div class="card-grid">
+
+      <!-- Card 1: Finger Filter -->
+      <div class="card">
+        <svg class="card__icon" viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="20" cy="10" r="3" fill="var(--orange)"/>
+          <path d="M20 13 C 14 20, 26 24, 12 32" stroke="var(--ink)" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+        </svg>
+        <h3>Finger Filter</h3>
+        <p>Point, and the filter follows. Real-time fingertip tracking turns your hand into a live paintbrush.</p>
+        <div class="card__actions">
+          <a href="finger_filter.html" class="btn btn--sm btn--live">Try Live</a>
+          <a href="finger_filter.html" download="finger_filter.html" class="btn btn--sm btn--download">Download</a>
+        </div>
+      </div>
+
+      <!-- Card 2: Pinch Puzzle Filter -->
+      <div class="card">
+        <svg class="card__icon" viewBox="0 0 40 40" aria-hidden="true">
+          <circle cx="12" cy="14" r="3" fill="var(--ink)"/>
+          <circle cx="28" cy="26" r="3" fill="var(--ink)"/>
+          <rect x="16" y="16" width="8" height="8" rx="2" stroke="var(--orange)" stroke-width="1.6" fill="none" transform="rotate(15 20 20)"/>
+          <path d="M14 16 L18 18 M26 24 L22 22" stroke="var(--ink)" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>
+        <h3>Pinch Puzzle Filter</h3>
+        <p>Pinch to grab, release to drop. A puzzle solved entirely with gesture control, no mouse required.</p>
+        <div class="card__actions">
+          <a href="pinch_puzzle_filter.html" class="btn btn--sm btn--live">Try Live</a>
+          <a href="pinch_puzzle_filter.html" download="pinch_puzzle_filter.html" class="btn btn--sm btn--download">Download</a>
+        </div>
+      </div>
+
+      <!-- Card 3: Zen Sand Garden -->
+      <div class="card">
+        <svg class="card__icon" viewBox="0 0 40 40" aria-hidden="true">
+          <path d="M6 14 Q13 10 20 14 T34 14" stroke="var(--ink)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+          <path d="M6 22 Q13 18 20 22 T34 22" stroke="var(--ink)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+          <path d="M6 30 Q13 26 20 30 T34 30" stroke="var(--ink)" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+          <circle cx="28" cy="12" r="2.4" fill="var(--orange)"/>
+        </svg>
+        <h3>Zen Sand Garden</h3>
+        <p>Rake calm into chaos. A generative sand simulation that responds to your hand's movement across the screen.</p>
+        <div class="card__actions">
+          <a href="zen-sand-garden.html" class="btn btn--sm btn--live">Try Live</a>
+          <a href="zen-sand-garden.html" download="zen-sand-garden.html" class="btn btn--sm btn--download">Download</a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="section about" id="about">
+    <p class="eyebrow">( About )</p>
+    <h2 class="section__title" style="max-width:none;">Built by one student, three cameras' worth of experiments.</h2>
+    <p>I'm <strong>Shivam Bharre</strong>, an Electronics &amp; Telecommunication Engineering student who codes for the way it feels, not just the way it works. These filters are weekend builds — small experiments in turning hand tracking into something playful.</p>
+    <a class="about__insta" href="https://www.instagram.com/shivam__bharre/" target="_blank" rel="noopener noreferrer">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <rect x="3" y="3" width="18" height="18" rx="5"/>
+        <circle cx="12" cy="12" r="4"/>
+        <circle cx="17.3" cy="6.7" r="1"/>
+      </svg>
+      Follow the process — @shivam__bharre
+    </a>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="site-footer__inner">
+    <p>© 2026 Shivam Bharre</p>
+    <span class="site-footer__meta">Built with MediaPipe · Vanilla JS</span>
+    <a href="#top" class="back-top">Back to top ↑</a>
+  </div>
+</footer>
 
 </body>
-</html>
+            </html>
+            
