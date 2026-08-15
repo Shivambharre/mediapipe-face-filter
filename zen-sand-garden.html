@@ -235,7 +235,7 @@ const GROOVE = '#c9b89d';
 let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
 
 // Two offscreen layers:
-// baseTexture -> the pristine flat sand + noise, never changes after generation
+// baseTexture -> the pristine flat sand + noise, never changes after
 // sandLayer   -> the persistent, evolving garden state (base + rake grooves, minus smoothed areas)
 const baseTexture = document.createElement('canvas');
 const btx = baseTexture.getContext('2d', { willReadFrequently: true });
