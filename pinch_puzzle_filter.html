@@ -445,7 +445,7 @@ function shufflePieces() {
   resolveOverlaps();
 }
 
-// Automatic separation/sliding for pieces hiding behind each other
+// Automatic separation/sliding for pieces hiding behind each otr
 function resolveOverlaps(movedPieceId = -1) {
   const unplaced = pieces.filter(p => !p.placed);
   if (unplaced.length <= 1) return;
