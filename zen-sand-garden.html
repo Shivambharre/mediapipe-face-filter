@@ -22,6 +22,7 @@
     width:100%; height:100%; overflow:hidden;
     background:#1c1712;
     font-family:'Zen Kaku Gothic New', sans-serif;
+    touch-action: none; /* Prevent scroll on touch fallback */
   }
   #stage{
     position:fixed; inset:0;
@@ -30,7 +31,7 @@
   canvas#garden{
     width:100vw; height:100vh;
     display:block;
-    cursor:none;
+    cursor:crosshair;
   }
   #video{
     position:fixed;
@@ -43,44 +44,36 @@
     z-index:5;
     pointer-events:none;
   }
+  
+  /* UI Overlay Elements */
   #title{
-    position:fixed;
-    top:28px; left:32px;
-    z-index:10;
-    color:var(--ink);
-    pointer-events:none;
-    user-select:none;
+    position:fixed; top:28px; left:32px; z-index:10;
+    color:var(--ink); pointer-events:none; user-select:none;
   }
   #title h1{
-    font-family:'Cormorant Garamond', serif;
-    font-weight:600;
-    font-size:28px;
-    letter-spacing:0.06em;
-    color:var(--ink);
+    font-family:'Cormorant Garamond', serif; font-weight:600;
+    font-size:28px; letter-spacing:0.06em; color:var(--ink);
     text-shadow:0 1px 0 rgba(255,255,255,0.25);
   }
   #title .sub{
-    font-family:'Cormorant Garamond', serif;
-    font-style:italic;
-    font-size:14px;
-    letter-spacing:0.08em;
-    color:var(--ink-soft);
-    margin-top:2px;
+    font-family:'Cormorant Garamond', serif; font-style:italic;
+    font-size:14px; letter-spacing:0.08em; color:var(--ink-soft); margin-top:2px;
   }
+  
+  #credit {
+    position:fixed; top:28px; right:32px; z-index:10;
+    text-align: right; color:var(--ink-soft); font-size:13px;
+  }
+  #credit a { color: var(--ink); text-decoration: none; font-weight: 500; }
+  #credit a:hover { text-decoration: underline; }
+
   #hud{
-    position:fixed;
-    bottom:24px; left:32px;
-    z-index:10;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    color:var(--ink);
-    pointer-events:none;
-    user-select:none;
+    position:fixed; bottom:24px; left:32px; z-index:10;
+    display:flex; align-items:center; gap:10px;
+    color:var(--ink); pointer-events:none; user-select:none;
   }
   #hud .dot{
-    width:9px; height:9px;
-    border-radius:50%;
+    width:9px; height:9px; border-radius:50%;
     background:var(--ink-soft);
     transition:background 0.25s ease, box-shadow 0.25s ease, transform 0.2s ease;
   }
@@ -88,90 +81,65 @@
   #hud.state-smooth .dot{ background:#7c95a8; box-shadow:0 0 8px rgba(124,149,168,0.7); transform:scale(1.2); }
   #hud.state-hover .dot{ background:var(--ink-soft); }
   #hud .label{
-    font-family:'Cormorant Garamond', serif;
-    font-size:15px;
-    letter-spacing:0.05em;
-    color:var(--ink);
-    min-width:150px;
+    font-family:'Cormorant Garamond', serif; font-size:15px;
+    letter-spacing:0.05em; color:var(--ink); min-width:150px;
   }
+  
+  /* NEW: Tools Panel */
+  #tools {
+    position:fixed; top:50%; left:32px; transform:translateY(-50%);
+    z-index:10; display:flex; flex-direction:column; gap:12px;
+  }
+  .tool-btn {
+    background: transparent; border: 1px solid var(--ink-soft);
+    color: var(--ink); font-family: 'Cormorant Garamond', serif;
+    font-size: 14px; padding: 6px 12px; border-radius: 20px;
+    cursor: pointer; transition: all 0.2s ease;
+  }
+  .tool-btn.active, .tool-btn:hover {
+    background: var(--ink); color: var(--paper); border-color: var(--ink);
+  }
+
   #reset{
-    position:fixed;
-    bottom:24px; right:24px;
-    z-index:10;
-    background:transparent;
-    border:1px solid var(--ink-soft);
-    color:var(--ink);
-    font-family:'Cormorant Garamond', serif;
-    font-size:14px;
-    letter-spacing:0.08em;
-    padding:8px 18px;
-    border-radius:20px;
-    cursor:pointer;
-    transition:all 0.2s ease;
+    position:fixed; bottom:24px; right:24px; z-index:10;
+    background:transparent; border:1px solid var(--ink-soft);
+    color:var(--ink); font-family:'Cormorant Garamond', serif;
+    font-size:14px; letter-spacing:0.08em; padding:8px 18px;
+    border-radius:20px; cursor:pointer; transition:all 0.2s ease;
   }
-  #reset:hover{
-    background:var(--ink);
-    color:var(--paper);
-    border-color:var(--ink);
-  }
+  #reset:hover{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+
+  /* Loading Overlay */
   #overlay{
-    position:fixed; inset:0;
-    background:#1c1712;
-    color:var(--paper);
-    z-index:100;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:14px;
-    text-align:center;
-    transition:opacity 0.6s ease;
+    position:fixed; inset:0; background:#1c1712; color:var(--paper); z-index:100;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:14px; text-align:center; transition:opacity 0.6s ease;
   }
-  #overlay h2{
-    font-family:'Cormorant Garamond', serif;
-    font-weight:600;
-    font-size:32px;
-    letter-spacing:0.08em;
-  }
-  #overlay p{
-    font-family:'Cormorant Garamond', serif;
-    font-size:16px;
-    color:rgba(244,236,221,0.65);
-    max-width:420px;
-    line-height:1.6;
-  }
+  #overlay h2{ font-family:'Cormorant Garamond', serif; font-weight:600; font-size:32px; letter-spacing:0.08em; }
+  #overlay p{ font-family:'Cormorant Garamond', serif; font-size:16px; color:rgba(244,236,221,0.65); max-width:420px; line-height:1.6; }
   #overlay .spinner{
-    width:28px; height:28px;
-    border-radius:50%;
-    border:2px solid rgba(244,236,221,0.2);
-    border-top-color:var(--paper);
+    width:28px; height:28px; border-radius:50%;
+    border:2px solid rgba(244,236,221,0.2); border-top-color:var(--paper);
     animation:spin 1s linear infinite;
   }
   @keyframes spin{ to{ transform:rotate(360deg); } }
   #overlay.hidden{ opacity:0; pointer-events:none; }
+  
+  #enter-btn {
+    display: none; margin-top: 20px; padding: 10px 24px;
+    background: var(--paper); color: var(--ink); border: none;
+    font-family: 'Cormorant Garamond', serif; font-size: 18px;
+    border-radius: 24px; cursor: pointer; transition: transform 0.2s ease;
+  }
+  #enter-btn:hover { transform: scale(1.05); }
+
   #instructions{
-    position:fixed;
-    top:50%; right:32px;
-    transform:translateY(-50%);
-    z-index:10;
-    color:var(--ink);
-    text-align:right;
-    pointer-events:none;
-    user-select:none;
-    opacity:0.85;
-    transition:opacity 1.2s ease;
+    position:fixed; top:50%; right:32px; transform:translateY(-50%);
+    z-index:10; color:var(--ink); text-align:right; pointer-events:none;
+    user-select:none; opacity:0.85; transition:opacity 1.2s ease;
   }
-  #instructions div{
-    font-family:'Cormorant Garamond', serif;
-    font-size:14px;
-    letter-spacing:0.04em;
-    margin-bottom:10px;
-    color:var(--ink-soft);
-  }
-  #instructions .k{
-    font-weight:600;
-    color:var(--ink);
-  }
+  #instructions div{ font-family:'Cormorant Garamond', serif; font-size:14px; letter-spacing:0.04em; margin-bottom:10px; color:var(--ink-soft); }
+  #instructions .k{ font-weight:600; color:var(--ink); }
   #instructions.hidden{ opacity:0; }
 </style>
 </head>
@@ -182,14 +150,22 @@
 </div>
 
 <video id="video" autoplay playsinline muted></video>
-    <div id="credit">
-      <div class="name">Shivam Vijay Bharre</div>
-      <div><a href="https://www.instagram.com/shivam__bharre/" target="_blank" rel="noopener noreferrer">@shivam__bharre</a></div>
-    </div>
+
+<div id="credit">
+  <div class="name">Shivam Vijay Bharre</div>
+  <div><a href="https://www.instagram.com/shivam__bharre/" target="_blank" rel="noopener noreferrer">@shivam__bharre</a></div>
+</div>
 
 <div id="title">
   <h1>枯山水 · Zen Sand Garden</h1>
   <div class="sub">gesture-raked, hand-smoothed</div>
+</div>
+
+<!-- NEW: Tools Panel -->
+<div id="tools">
+  <button class="tool-btn" data-tines="3">3 Tines</button>
+  <button class="tool-btn active" data-tines="4">4 Tines</button>
+  <button class="tool-btn" data-tines="8">8 Tines</button>
 </div>
 
 <div id="hud" class="state-hover">
@@ -200,15 +176,17 @@
 <div id="instructions">
   <div><span class="k">Pinch</span> thumb + index — rake the sand</div>
   <div><span class="k">Open palm</span> — smooth it away</div>
-  <div><span class="k">Relax</span> your hand — just hover</div>
+  <div><span class="k">Double Click</span> — place Zen stone</div>
+  <div><span class="k">Mouse Fallback</span> — L-Click Rake, R-Click Smooth</div>
 </div>
 
 <button id="reset">reset garden</button>
 
 <div id="overlay">
-  <div class="spinner"></div>
+  <div class="spinner" id="spinner"></div>
   <h2>Preparing the garden</h2>
   <p id="overlay-text">Loading the hand tracking model and asking for camera access…</p>
+  <button id="enter-btn">Enter Garden</button>
 </div>
 
 <script type="module">
@@ -224,22 +202,27 @@ const dctx = displayCanvas.getContext('2d', { willReadFrequently: false });
 const video = document.getElementById('video');
 const overlay = document.getElementById('overlay');
 const overlayText = document.getElementById('overlay-text');
+const spinner = document.getElementById('spinner');
+const enterBtn = document.getElementById('enter-btn');
 const instructions = document.getElementById('instructions');
 const hud = document.getElementById('hud');
 const hudLabel = document.getElementById('hud-label');
 const resetBtn = document.getElementById('reset');
+const toolBtns = document.querySelectorAll('.tool-btn');
 
 const SAND = '#e8dcc7';
 const GROOVE = '#c9b89d';
 
 let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+let numTines = 4; // Rake tool setting
+
+// Arrays for new features
+let stones = [];
+let particles = [];
 
 // Two offscreen layers:
-// baseTexture -> the pristine flat sand + noise, never changes after
-// sandLayer   -> the persistent, evolving garden state (base + rake grooves, minus smoothed areas)
 const baseTexture = document.createElement('canvas');
 const btx = baseTexture.getContext('2d', { willReadFrequently: true });
-
 const sandLayer = document.createElement('canvas');
 const stx = sandLayer.getContext('2d');
 
@@ -247,18 +230,16 @@ function generateBaseTexture(canvas, ctx) {
   ctx.fillStyle = SAND;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // subtle static grain overlay
   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imgData.data;
   for (let i = 0; i < data.length; i += 4) {
-    const n = (Math.random() - 0.5) * 14; // small luminance jitter
+    const n = (Math.random() - 0.5) * 14; 
     data[i]     = Math.min(255, Math.max(0, data[i] + n));
     data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + n));
     data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + n * 0.85));
   }
   ctx.putImageData(imgData, 0, 0);
 
-  // faint concentric ripple texture
   ctx.save();
   ctx.globalAlpha = 0.05;
   ctx.strokeStyle = '#8b6f47';
@@ -287,22 +268,70 @@ function resizeCanvases() {
   sandLayer.height = H * DPR;
 
   generateBaseTexture(baseTexture, btx);
-
-  // s
   stx.drawImage(baseTexture, 0, 0);
 }
 
-window.addEventListener('resize', () => {
-  // simple approach: regenerate on resize (keeps things robust; rare event)
-  resizeCanvases();
-});
+window.addEventListener('resize', resizeCanvases);
 
 resetBtn.addEventListener('click', () => {
   stx.clearRect(0, 0, sandLayer.width, sandLayer.height);
   stx.drawImage(baseTexture, 0, 0);
+  stones = [];
+  particles = [];
+});
+
+toolBtns.forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    toolBtns.forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    numTines = parseInt(e.target.getAttribute('data-tines'));
+  });
 });
 
 resizeCanvases();
+
+// ---------- NEW: Audio Engine ----------
+let audioCtx, noiseNode, filterNode, gainNode;
+
+function initAudio() {
+  if (audioCtx) return;
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  audioCtx = new AudioContext();
+  
+  const bufferSize = audioCtx.sampleRate * 2; 
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1; // White Noise
+  }
+  
+  noiseNode = audioCtx.createBufferSource();
+  noiseNode.buffer = buffer;
+  noiseNode.loop = true;
+  
+  filterNode = audioCtx.createBiquadFilter();
+  filterNode.type = 'lowpass';
+  filterNode.frequency.value = 400;
+  
+  gainNode = audioCtx.createGain();
+  gainNode.gain.value = 0;
+  
+  noiseNode.connect(filterNode);
+  filterNode.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  noiseNode.start();
+}
+
+function updateAudio(gesture, velocity) {
+  if (!audioCtx) return;
+  // Modulate volume by velocity, pitch by gesture type
+  const targetGain = (gesture === 'rake' || gesture === 'smooth') ? Math.min(velocity * 0.008, 0.25) : 0;
+  const targetFreq = gesture === 'rake' ? 800 + (velocity * 20) : 300;
+  
+  gainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
+  filterNode.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+}
+
 
 // ---------- MediaPipe setup ----------
 let handLandmarker = null;
@@ -339,21 +368,80 @@ async function setupCamera() {
 
 async function init() {
   try {
-    overlayText.textContent = "Loading the hand tracking model…";
+    overlayText.textContent = "Loading the AI hand tracking model…";
     await setupHandLandmarker();
     overlayText.textContent = "Asking for camera access…";
     await setupCamera();
-    overlay.classList.add('hidden');
-    setTimeout(() => instructions.classList.add('hidden'), 6000);
-    running = true;
-    requestAnimationFrame(loop);
+    
+    // Model is ready. Show Enter button to init AudioContext legally
+    spinner.style.display = 'none';
+    overlayText.textContent = "Garden is ready. Step inside.";
+    enterBtn.style.display = 'block';
+
+    enterBtn.addEventListener('click', () => {
+      initAudio();
+      overlay.classList.add('hidden');
+      setTimeout(() => instructions.classList.add('hidden'), 8000);
+      running = true;
+      requestAnimationFrame(loop);
+    });
+
   } catch (err) {
     console.error(err);
-    overlayText.textContent = "Couldn't start the camera or model: " + err.message + ". Please allow camera access and reload.";
-    const spinner = document.querySelector('#overlay .spinner');
-    if (spinner) spinner.style.display = 'none';
+    overlayText.textContent = "Camera/Model Error: " + err.message + ". You can still use the Mouse/Touch fallback to draw!";
+    spinner.style.display = 'none';
+    enterBtn.textContent = "Enter without Camera";
+    enterBtn.style.display = 'block';
+    
+    enterBtn.addEventListener('click', () => {
+      initAudio();
+      overlay.classList.add('hidden');
+      setTimeout(() => instructions.classList.add('hidden'), 8000);
+      running = true;
+      requestAnimationFrame(loop);
+    });
   }
 }
+
+// ---------- NEW: Mouse/Touch Fallback Input ----------
+let mouseGesture = 'none';
+let mouseInputPoint = null;
+
+displayCanvas.addEventListener('mousedown', (e) => {
+  mouseInputPoint = { x: e.clientX, y: e.clientY };
+  mouseGesture = e.button === 2 || e.shiftKey ? 'smooth' : 'rake';
+});
+displayCanvas.addEventListener('mousemove', (e) => {
+  if (mouseGesture !== 'none') mouseInputPoint = { x: e.clientX, y: e.clientY };
+  else { mouseInputPoint = { x: e.clientX, y: e.clientY }; mouseGesture = 'hover'; }
+});
+displayCanvas.addEventListener('mouseup', () => { mouseGesture = 'none'; });
+displayCanvas.addEventListener('mouseleave', () => { mouseGesture = 'none'; });
+displayCanvas.addEventListener('contextmenu', e => e.preventDefault()); // Allow right click
+
+// Double click to place Zen Stones
+displayCanvas.addEventListener('dblclick', (e) => {
+  stones.push({
+    x: e.clientX, y: e.clientY,
+    r: 15 + Math.random() * 25,
+    seed: Math.random() * Math.PI * 2
+  });
+});
+
+// Touch support
+displayCanvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseInputPoint = { x: t.clientX, y: t.clientY };
+  mouseGesture = e.touches.length > 1 ? 'smooth' : 'rake';
+}, {passive: false});
+displayCanvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouseInputPoint = { x: t.clientX, y: t.clientY };
+}, {passive: false});
+displayCanvas.addEventListener('touchend', () => { mouseGesture = 'none'; });
+
 
 // ---------- Gesture helpers ----------
 function dist2D(a, b) {
@@ -361,103 +449,135 @@ function dist2D(a, b) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// CSS-pixel space (for anything drawn on the DPR-transformed display context)
-function toCanvasXY(landmark) {
-  return {
-    x: (1 - landmark.x) * W,
-    y: landmark.y * H
-  };
-}
+function toCanvasXY(landmark) { return { x: (1 - landmark.x) * W, y: landmark.y * H }; }
+function toSandXY(pt) { return { x: pt.x * DPR, y: pt.y * DPR }; }
 
-// device-pixel space (for anything drawn directly onto the untransformed
-// offscreen sandLayer / baseTexture canvases, which are sized W*DPR x H*DPR)
-function toSandXY(landmark) {
-  return {
-    x: (1 - landmark.x) * W * DPR,
-    y: landmark.y * H * DPR
-  };
-}
-
-// state for continuous rake strokes
-let lastRakePoint = null;   // in canvas space
+let lastRakePoint = null;   
 let wasPinching = false;
 let lastSmoothPoint = null;
 let hoverPulse = 0;
 
 function classifyGesture(landmarks) {
-  const thumbTip = landmarks[4];
-  const indexTip = landmarks[8];
-  const wrist = landmarks[0];
-
+  const thumbTip = landmarks[4], indexTip = landmarks[8], wrist = landmarks[0];
   const pinchDist = dist2D(thumbTip, indexTip);
-  if (pinchDist < 0.05) {
-    return 'rake';
-  }
+  if (pinchDist < 0.05) return 'rake';
 
-  // open palm check: for each finger, tip should be noticeably farther
-  // from the wrist than its own knuckle (MCP) is -> finger extended
   const fingers = [
-    { tip: landmarks[8],  mcp: landmarks[5] },  // index
-    { tip: landmarks[12], mcp: landmarks[9] },  // middle
-    { tip: landmarks[16], mcp: landmarks[13] }, // ring
-    { tip: landmarks[20], mcp: landmarks[17] }  // pinky
+    { tip: landmarks[8],  mcp: landmarks[5] },
+    { tip: landmarks[12], mcp: landmarks[9] },
+    { tip: landmarks[16], mcp: landmarks[13] },
+    { tip: landmarks[20], mcp: landmarks[17] }
   ];
 
   let extendedCount = 0;
   for (const f of fingers) {
-    const tipDist = dist2D(wrist, f.tip);
-    const mcpDist = dist2D(wrist, f.mcp);
-    if (tipDist > mcpDist * 1.35) extendedCount++;
+    if (dist2D(wrist, f.tip) > dist2D(wrist, f.mcp) * 1.35) extendedCount++;
   }
-
-  if (extendedCount === 4) {
-    return 'smooth';
-  }
-
+  if (extendedCount === 4) return 'smooth';
   return 'hover';
+}
+
+
+// ---------- NEW: Particle System ----------
+function emitDust(x, y, colorStr, amount = 1) {
+  for (let i = 0; i < amount; i++) {
+    particles.push({
+      x: x / DPR, y: y / DPR, // Store in CSS pixels for dctx
+      vx: (Math.random() - 0.5) * 2,
+      vy: (Math.random() - 0.5) * 2,
+      life: 1.0, size: Math.random() * 2 + 1,
+      color: colorStr
+    });
+  }
+}
+
+function drawParticlesAndStones(ctx) {
+  // Update & Draw Dust Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.life -= 0.03;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1.0;
+
+  // Draw Zen Stones
+  stones.forEach(stone => {
+    // 3D Shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(28, 23, 18, 0.6)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetX = 8; ctx.shadowOffsetY = 8;
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+    ctx.beginPath(); ctx.arc(stone.x, stone.y, stone.r, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // Stone Texture (Gradient)
+    ctx.save();
+    ctx.translate(stone.x, stone.y);
+    ctx.rotate(stone.seed);
+    const grad = ctx.createRadialGradient(-stone.r * 0.3, -stone.r * 0.3, stone.r * 0.1, 0, 0, stone.r);
+    grad.addColorStop(0, '#a3a5a8');
+    grad.addColorStop(0.7, '#6b6e73');
+    grad.addColorStop(1, '#3b3d40');
+    
+    ctx.fillStyle = grad;
+    ctx.beginPath(); 
+    // Slight organic deformation
+    ctx.ellipse(0, 0, stone.r, stone.r * 0.85, 0, 0, Math.PI * 2); 
+    ctx.fill();
+    ctx.restore();
+  });
 }
 
 // ---------- Drawing ----------
 function drawRakeSegment(from, to) {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
+  const dx = to.x - from.x, dy = to.y - from.y;
   const len = Math.sqrt(dx * dx + dy * dy);
   if (len < 0.5) return;
 
-  const nx = -dy / len; // perpendicular unit vector
-  const ny = dx / len;
-
-  const numTines = 4;
-  const spacing = 3.4 * DPR;
+  const nx = -dy / len, ny = dx / len;
+  const spacing = (28 / numTines) * DPR; 
   const baseOffset = -(numTines - 1) * spacing / 2;
 
   stx.save();
-  stx.lineCap = 'round';
-  stx.lineJoin = 'round';
-  stx.shadowColor = 'rgba(139, 111, 71, 0.35)';
-  stx.shadowBlur = 2.5 * DPR;
+  stx.lineCap = 'round'; stx.lineJoin = 'round';
 
   for (let i = 0; i < numTines; i++) {
     const offset = baseOffset + i * spacing;
-    const jitter = (Math.sin(i * 12.9898 + from.x * 0.01) * 0.4);
-    const ox = nx * (offset + jitter);
-    const oy = ny * (offset + jitter);
+    const jitter = (Math.sin(i * 12.98 + from.x * 0.01) * 0.4);
+    const ox = nx * (offset + jitter), oy = ny * (offset + jitter);
 
+    // NEW: 3D Depth Shading pass
+    // 1. Deep Shadow (Top-Left offset slightly)
+    stx.beginPath();
+    stx.moveTo(from.x + ox - 1, from.y + oy - 1);
+    stx.lineTo(to.x + ox - 1, to.y + oy - 1);
+    stx.strokeStyle = 'rgba(92, 74, 48, 0.4)'; // Dark trough
+    stx.lineWidth = 3.5 * DPR;
+    stx.stroke();
+
+    // 2. Base Groove line
     stx.beginPath();
     stx.moveTo(from.x + ox, from.y + oy);
     stx.lineTo(to.x + ox, to.y + oy);
     stx.strokeStyle = GROOVE;
-    stx.globalAlpha = 0.55;
-    stx.lineWidth = 2.2 * DPR;
+    stx.globalAlpha = 0.6;
+    stx.lineWidth = 2.0 * DPR;
     stx.stroke();
 
-    // a thin darker core line inside each groove for depth
+    // 3. Bright Highlight (Bottom-Right offset slightly) for Ridge
     stx.beginPath();
-    stx.moveTo(from.x + ox, from.y + oy);
-    stx.lineTo(to.x + ox, to.y + oy);
-    stx.strokeStyle = '#a9977a';
-    stx.globalAlpha = 0.35;
-    stx.lineWidth = 0.8 * DPR;
+    stx.moveTo(from.x + ox + 1.5, from.y + oy + 1.5);
+    stx.lineTo(to.x + ox + 1.5, to.y + oy + 1.5);
+    stx.strokeStyle = 'rgba(255, 250, 235, 0.35)'; // Sun reflection
+    stx.lineWidth = 1.5 * DPR;
     stx.stroke();
   }
   stx.restore();
@@ -467,15 +587,8 @@ function smoothAt(point) {
   const radius = 46 * DPR;
   stx.save();
   stx.beginPath();
-  const grad = stx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.7, 'rgba(255,255,255,0.6)');
-  grad.addColorStop(1, 'rgba(255,255,255,0)');
-
-  // draw the pristine base texture clipped to a soft circular brush,
-  // blendedd in gently so grooves fade rather than vanish instantly
   stx.globalCompositeOperation = 'source-over';
-  stx.globalAlpha = 0.22;
+  stx.globalAlpha = 0.3; // slightly stronger smoothing
   stx.beginPath();
   stx.arc(point.x, point.y, radius, 0, Math.PI * 2);
   stx.clip();
@@ -501,20 +614,11 @@ function drawHoverIndicator(point, ctxTarget) {
 }
 
 function setHud(state) {
-  hud.classList.remove('state-rake', 'state-smooth', 'state-hover');
-  if (state === 'rake') {
-    hud.classList.add('state-rake');
-    hudLabel.textContent = 'raking the sand';
-  } else if (state === 'smooth') {
-    hud.classList.add('state-smooth');
-    hudLabel.textContent = 'smoothing it away';
-  } else if (state === 'none') {
-    hud.classList.add('state-hover');
-    hudLabel.textContent = 'finding your hand…';
-  } else {
-    hud.classList.add('state-hover');
-    hudLabel.textContent = 'hovering';
-  }
+  hud.className = '';
+  if (state === 'rake') { hud.classList.add('state-rake'); hudLabel.textContent = 'raking the sand'; } 
+  else if (state === 'smooth') { hud.classList.add('state-smooth'); hudLabel.textContent = 'smoothing it away'; } 
+  else if (state === 'none') { hud.classList.add('state-hover'); hudLabel.textContent = 'waiting for input…'; } 
+  else { hud.classList.add('state-hover'); hudLabel.textContent = 'hovering'; }
 }
 
 // ---------- Main loop ----------
@@ -522,76 +626,83 @@ function loop() {
   if (!running) return;
 
   let nowInMs = performance.now();
-  let handPoint = null;
-  let gesture = 'none';
+  let targetGesture = 'none';
+  let cssPoint = null;
+  let devPoint = null; 
+  let inputVelocity = 0;
 
+  // 1. Process Webcam Input
   if (video.currentTime !== lastVideoTime && handLandmarker) {
     lastVideoTime = video.currentTime;
     const result = handLandmarker.detectForVideo(video, nowInMs);
 
     if (result.landmarks && result.landmarks.length > 0) {
       const landmarks = result.landmarks[0];
-      gesture = classifyGesture(landmarks);
-
-      if (gesture === 'rake') {
-        // device-pixel coords for drawing onto the persistent sandLayer
-        const thumbTipS = toSandXY(landmarks[4]);
-        const indexTipS = toSandXY(landmarks[8]);
-        const sandPoint = {
-          x: (thumbTipS.x + indexTipS.x) / 2,
-          y: (thumbTipS.y + indexTipS.y) / 2
-        };
-
-        if (wasPinching && lastRakePoint) {
-          drawRakeSegment(lastRakePoint, sandPoint);
-        }
-        lastRakePoint = sandPoint;
-        wasPinching = true;
-        lastSmoothPoint = null;
-
-        // CSS-pixel coords, only needed if we ever show a cursor here
-        handPoint = toCanvasXY(landmarks[8]);
-      } else if (gesture === 'smooth') {
-        const sandPoint = toSandXY(landmarks[9]); // palm center approx, device pixels
-        smoothAt(sandPoint);
-        if (lastSmoothPoint) {
-          // interpolate a few steps between last and current for a continuous swipe
-          const steps = 4;
-          for (let s = 1; s <= steps; s++) {
-            const t = s / steps;
-            smoothAt({
-              x: lastSmoothPoint.x + (sandPoint.x - lastSmoothPoint.x) * t,
-              y: lastSmoothPoint.y + (sandPoint.y - lastSmoothPoint.y) * t
-            });
-          }
-        }
-        lastSmoothPoint = sandPoint;
-        wasPinching = false;
-        lastRakePoint = null;
-
-        handPoint = toCanvasXY(landmarks[9]);
+      targetGesture = classifyGesture(landmarks);
+      
+      if (targetGesture === 'rake') {
+        cssPoint = toCanvasXY(landmarks[8]);
+        devPoint = { x: (toSandXY(landmarks[4]).x + toSandXY(landmarks[8]).x)/2, y: (toSandXY(landmarks[4]).y + toSandXY(landmarks[8]).y)/2 };
       } else {
-        handPoint = toCanvasXY(landmarks[9]);
-        wasPinching = false;
-        lastRakePoint = null;
-        lastSmoothPoint = null;
+        cssPoint = toCanvasXY(landmarks[9]);
+        devPoint = toSandXY(landmarks[9]);
       }
-
-      setHud(gesture);
-    } else {
-      setHud('none');
-      wasPinching = false;
-      lastRakePoint = null;
-      lastSmoothPoint = null;
     }
   }
 
-  // composite: persistent sand layer -> display, then ephemeral hover indicator on top
+  // 2. Override with Mouse/Touch if active
+  if (mouseGesture !== 'none' || (mouseGesture === 'hover' && mouseInputPoint)) {
+    targetGesture = mouseGesture;
+    cssPoint = mouseInputPoint;
+    devPoint = toSandXY(mouseInputPoint);
+  }
+
+  // 3. Execute actions based on calculated state
+  if (targetGesture === 'rake') {
+    if (wasPinching && lastRakePoint && devPoint) {
+      drawRakeSegment(lastRakePoint, devPoint);
+      inputVelocity = dist2D(lastRakePoint, devPoint);
+      emitDust(devPoint.x, devPoint.y, 'rgba(184, 166, 136, 0.8)', Math.floor(inputVelocity/2));
+    }
+    lastRakePoint = devPoint;
+    wasPinching = true;
+    lastSmoothPoint = null;
+  } 
+  else if (targetGesture === 'smooth') {
+    if (devPoint) {
+      smoothAt(devPoint);
+      if (lastSmoothPoint) {
+        inputVelocity = dist2D(lastSmoothPoint, devPoint);
+        const steps = 4;
+        for (let s = 1; s <= steps; s++) {
+          const t = s / steps;
+          smoothAt({ x: lastSmoothPoint.x + (devPoint.x - lastSmoothPoint.x)*t, y: lastSmoothPoint.y + (devPoint.y - lastSmoothPoint.y)*t });
+        }
+        emitDust(devPoint.x, devPoint.y, 'rgba(232, 220, 199, 0.6)', 2);
+      }
+      lastSmoothPoint = devPoint;
+    }
+    wasPinching = false;
+    lastRakePoint = null;
+  } 
+  else {
+    wasPinching = false;
+    lastRakePoint = null;
+    lastSmoothPoint = null;
+  }
+
+  setHud(targetGesture);
+  updateAudio(targetGesture, inputVelocity);
+
+  // 4. Composite drawing layers
   dctx.clearRect(0, 0, W, H);
   dctx.drawImage(sandLayer, 0, 0, W * DPR, H * DPR, 0, 0, W, H);
 
-  if (handPoint && gesture === 'hover') {
-    drawHoverIndicator(handPoint, dctx);
+  // 5. Draw Particles, Stones, and Cursors on top
+  drawParticlesAndStones(dctx);
+
+  if (cssPoint && targetGesture === 'hover') {
+    drawHoverIndicator(cssPoint, dctx);
   }
 
   requestAnimationFrame(loop);
